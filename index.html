@@ -926,13 +926,13 @@ async function gasPost(payload) {
 // ═══════════════════════════════════════════════════
 async function loadScheduleData() {
   if (!isConnected) { showStatus('calStatus','error','⚠️ 請先連線 GAS'); return; }
-  showOverlay('載入排課資料（含進度串接，約需 20~40 秒）...');
+  
+  // ── Stage 1：快速載入排課資料（秒回，不含進度）──
+  showOverlay('載入排課資料...');
   try {
     const r = await gasGet({ action: 'getScheduleDetail' });
     if (r && r.data) {
       scheduleData = r.data;
-    } else if (r && Array.isArray(r)) {
-      scheduleData = r;
     } else if (r && r.ok === false) {
       throw new Error(r.error || 'GAS 回傳錯誤');
     }
@@ -944,17 +944,37 @@ async function loadScheduleData() {
     teacherList = [...tSet].sort();
     updateTeacherSelects();
     renderCalendar();
-    showStatus('calStatus','success',`✅ 已載入 ${scheduleData.length} 筆排課資料`);
+    hideOverlay();
+    showStatus('calStatus','success',`✅ 已載入 ${scheduleData.length} 筆排課資料，進度載入中...`);
   } catch(e) {
+    hideOverlay();
     renderCalendar();
-    const isTimeout = e.message.includes('timeout');
-    showStatus('calStatus','error',
-      isTimeout
-        ? `⏱️ 載入逾時（進度表串接太慢）— 請稍後按「重新載入」再試`
-        : `❌ 載入失敗：${e.message}`
-    );
+    showStatus('calStatus','error',`❌ 載入失敗：${e.message}`);
+    return;
   }
-  hideOverlay();
+
+  // ── Stage 2：非同步補上進度（背景執行，不擋畫面）──
+  const month = parseInt(document.getElementById('selMonth').value);
+  try {
+    const pr = await gasGet({ action: 'getProgressBatch', month });
+    if (pr && pr.ok && pr.progress) {
+      const map = pr.progress;
+      let updated = 0;
+      scheduleData.forEach(row => {
+        const key = `${row.date}|${row.className}`;
+        if (map[key]) {
+          row.progress = map[key].progress || '';
+          row.examNote = map[key].examNote || '';
+          updated++;
+        }
+      });
+      renderCalendar(); // 重新渲染含進度的月曆
+      showStatus('calStatus','success',`✅ 載入完成，${updated} 筆課程有進度資料`);
+    }
+  } catch(e) {
+    // 進度載入失敗不影響主功能，只更新狀態列
+    showStatus('calStatus','success',`✅ 排課已載入（進度載入失敗：${e.message}）`);
+  }
 }
 
 async function loadClasses() {
