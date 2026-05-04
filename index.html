@@ -903,13 +903,15 @@ async function gasGet(params) {
   if (!GAS_URL) throw new Error('No GAS URL');
   const qs = Object.entries(params).map(([k,v]) => `${k}=${encodeURIComponent(v)}`).join('&');
   const cbName = 'cb_' + Date.now();
+  // getScheduleDetail 需要串接進度表，給 60 秒；其他 action 給 20 秒
+  const timeoutMs = params.action === 'getScheduleDetail' ? 60000 : 20000;
   return new Promise((resolve, reject) => {
     const s = document.createElement('script');
     window[cbName] = d => { resolve(d); delete window[cbName]; s.remove(); };
     s.src = `${GAS_URL}?${qs}&callback=${cbName}`;
     s.onerror = () => { reject(new Error('JSONP failed')); delete window[cbName]; s.remove(); };
     document.body.appendChild(s);
-    setTimeout(() => { if (window[cbName]) { reject(new Error('timeout')); delete window[cbName]; s.remove(); } }, 15000);
+    setTimeout(() => { if (window[cbName]) { reject(new Error(`timeout after ${timeoutMs/1000}s`)); delete window[cbName]; s.remove(); } }, timeoutMs);
   });
 }
 
@@ -924,16 +926,16 @@ async function gasPost(payload) {
 // ═══════════════════════════════════════════════════
 async function loadScheduleData() {
   if (!isConnected) { showStatus('calStatus','error','⚠️ 請先連線 GAS'); return; }
-  showOverlay('載入排課資料...');
+  showOverlay('載入排課資料（含進度串接，約需 20~40 秒）...');
   try {
-    // Try to get schedule detail data
     const r = await gasGet({ action: 'getScheduleDetail' });
     if (r && r.data) {
       scheduleData = r.data;
     } else if (r && Array.isArray(r)) {
       scheduleData = r;
+    } else if (r && r.ok === false) {
+      throw new Error(r.error || 'GAS 回傳錯誤');
     }
-    // Extract teacher list
     const tSet = new Set();
     scheduleData.forEach(row => {
       if (row.lead) tSet.add(cleanName(row.lead));
@@ -944,9 +946,13 @@ async function loadScheduleData() {
     renderCalendar();
     showStatus('calStatus','success',`✅ 已載入 ${scheduleData.length} 筆排課資料`);
   } catch(e) {
-    // Fallback: render empty calendar
     renderCalendar();
-    showStatus('calStatus','error','⚠️ 無法載入排課資料（GAS 需要有 getScheduleDetail action）');
+    const isTimeout = e.message.includes('timeout');
+    showStatus('calStatus','error',
+      isTimeout
+        ? `⏱️ 載入逾時（進度表串接太慢）— 請稍後按「重新載入」再試`
+        : `❌ 載入失敗：${e.message}`
+    );
   }
   hideOverlay();
 }
