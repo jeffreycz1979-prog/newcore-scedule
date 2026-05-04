@@ -706,11 +706,8 @@ const MONTH_COLORS = {
 };
 
 // ══ HARDCODED CONFIG ══════════════════════════════
-// ⚠️ 請把下面換成你授權中心（程式碼.gs）的完整部署網址
-// 前綴是 AKfycbyF9mEn3...
 const HARDCODED_BRAIN_URL = 'https://script.google.com/macros/s/AKfycbyd852tVzBVNYAn7FVEmvOAnQB_ZQGkm3mR6ui9kFM9kRM8a8Ap1Uk-a24zVDm31n9x_g/exec';
-// 月排課 GAS 網址 — 可在 topbar 手動修改
-const DEFAULT_GAS_URL = '';
+const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbxaxdc_F9-y_IgW2ah5kyqvGJ8lSKLBJIOesILXYaYjDABTSh1YN7SKSZ2n6Hj7WpLleA/exec';
 // ══════════════════════════════════════════════════
 
 let BRAIN_URL = HARDCODED_BRAIN_URL;
@@ -806,8 +803,8 @@ async function doLogin(silent = false) {
 
       setDefaultDateSelectors();
 
-      // Try to auto-connect GAS if saved
-      const savedGas = localStorage.getItem('nc_gas_url');
+      // Try to auto-connect GAS if saved, or use default
+      const savedGas = localStorage.getItem('nc_gas_url') || DEFAULT_GAS_URL;
       if (savedGas) {
         document.getElementById('gasUrlInput').value = savedGas;
         await connectGAS(true);
