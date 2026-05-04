@@ -470,6 +470,110 @@
     display: flex; align-items: center; justify-content: center;
     font-size: 11px; font-weight: 700; color: white;
   }
+
+  /* ── 手機月曆清單模式 ── */
+  .cal-list { display: none; }
+
+  .cal-list-day {
+    margin-bottom: 8px;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  .cal-list-day-header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px;
+    background: var(--surface2);
+    font-size: 14px; font-weight: 700;
+  }
+  .cal-list-day-header .day-num {
+    font-size: 22px; font-weight: 900; line-height: 1;
+    color: var(--accent);
+    min-width: 32px;
+  }
+  .cal-list-day-header .day-info { flex: 1; }
+  .cal-list-day-header .day-week {
+    font-size: 12px; color: var(--muted); font-weight: 400;
+  }
+  .cal-list-day-header .day-count {
+    font-size: 11px; color: var(--muted);
+    background: var(--surface); border-radius: 10px;
+    padding: 2px 8px;
+  }
+  .cal-list-day.today .cal-list-day-header {
+    background: rgba(79,142,247,0.12);
+    border-left: 3px solid var(--accent);
+  }
+  .cal-list-day.holiday .cal-list-day-header { opacity: 0.5; }
+
+  .cal-list-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 14px;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+    position: relative;
+  }
+  .cal-list-item:active { background: var(--surface2); }
+  .cal-list-dot {
+    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+  }
+  .cal-list-dot.lead { background: var(--accent); }
+  .cal-list-dot.assist { background: var(--green); }
+  .cal-list-content { flex: 1; min-width: 0; }
+  .cal-list-class {
+    font-size: 15px; font-weight: 700;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .cal-list-meta {
+    font-size: 12px; color: var(--muted); margin-top: 2px;
+  }
+  .cal-list-progress {
+    font-size: 11px; color: var(--accent); margin-top: 3px;
+  }
+  .cal-list-exam {
+    font-size: 11px; font-weight: 700;
+    background: rgba(245,166,35,0.15); color: var(--orange);
+    border-radius: 4px; padding: 2px 6px;
+    flex-shrink: 0;
+  }
+  .cal-list-exam.big { background: rgba(224,82,82,0.15); color: var(--red); }
+  .cal-list-del {
+    width: 36px; height: 36px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; color: var(--muted); flex-shrink: 0;
+    cursor: pointer; transition: all 0.15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .cal-list-del:active { background: rgba(224,82,82,0.15); color: var(--red); }
+
+  /* ── 手機響應式 ── */
+  @media (max-width: 768px) {
+    .topbar { padding: 10px 14px; gap: 10px; flex-wrap: wrap; }
+    .gas-url-wrap { width: 100%; order: 3; max-width: 100%; }
+    .gas-url-wrap input { display: none; } /* 手機隱藏 GAS URL 輸入框 */
+    .topbar .logo { font-size: 15px; }
+    .main { padding: 10px; }
+    .nav-tabs { padding: 10px 10px 0; gap: 2px; }
+    .nav-tab { padding: 8px 10px; font-size: 12px; }
+
+    /* 控制列手機版 */
+    .controls-row { flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+    .ctrl-group { flex-wrap: wrap; gap: 6px; }
+    .ctrl-group select, .ctrl-group input[type="number"] { font-size: 15px; }
+
+    /* 月曆：隱藏格子，顯示清單 */
+    .cal-grid { display: none !important; }
+    .cal-list { display: block; }
+    .cal-header { flex-direction: column; align-items: flex-start; gap: 4px; }
+    .cal-title { font-size: 20px; }
+
+    /* 其他頁籤 */
+    .picker-panel { grid-template-columns: 1fr; }
+    .stats-grid { grid-template-columns: 1fr; }
+    .email-preview-wrap { grid-template-columns: 1fr; }
+    .hours-table th, .hours-table td { padding: 8px 10px; font-size: 12px; }
+    .settings-table-wrap { overflow-x: auto; }
+  }
 </style>
 </head>
 <body>
@@ -548,6 +652,7 @@
     </div>
     <div id="calStatus" class="status-bar" style="display:none"></div>
     <div class="calendar-wrap" id="calWrap"></div>
+    <div class="cal-list" id="calList"></div>
   </div>
 
   <!-- ═══════════════════ PICKER ═══════════════════ -->
@@ -1119,6 +1224,96 @@ function renderCalendar() {
 
   html += `</div>`;
   wrap.innerHTML = html;
+
+  // 同步渲染手機清單模式
+  renderCalendarList(year, month, teacher);
+}
+
+function renderCalendarList(year, month, teacher) {
+  const listWrap = document.getElementById('calList');
+  if (!listWrap) return;
+
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
+  const DAYS_FULL = ['週日','週一','週二','週三','週四','週五','週六'];
+
+  // 篩選本月有課的日期
+  const monthData = scheduleData.filter(row => {
+    if (parseInt(row.month) !== month) return false;
+    if (teacher !== 'all') {
+      return cleanName(row.lead) === teacher || cleanName(row.assist) === teacher;
+    }
+    return true;
+  });
+
+  // 按日期分組
+  const byDate = {};
+  monthData.forEach(row => {
+    if (!byDate[row.date]) byDate[row.date] = [];
+    byDate[row.date].push(row);
+  });
+
+  // 只顯示有課的日期
+  const activeDates = Object.keys(byDate).sort();
+
+  if (!activeDates.length) {
+    listWrap.innerHTML = `<div class="empty-state"><div class="icon">📅</div><p>本月無排課資料</p></div>`;
+    return;
+  }
+
+  let html = '';
+  activeDates.forEach(dateStr => {
+    const d = new Date(dateStr);
+    const dayNum = d.getDate();
+    const dayOfWeek = d.getDay();
+    const isToday = dateStr === todayStr;
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+    const rows = byDate[dateStr];
+
+    html += `<div class="cal-list-day${isToday ? ' today' : ''}${isWeekend ? ' holiday' : ''}">
+      <div class="cal-list-day-header">
+        <div class="day-num">${dayNum}</div>
+        <div class="day-info">
+          <div>${month}月${dayNum}日</div>
+          <div class="day-week">${DAYS_FULL[dayOfWeek]}${isToday ? ' · 今天' : ''}</div>
+        </div>
+        <div class="day-count">${rows.length} 堂</div>
+      </div>`;
+
+    rows.forEach(row => {
+      const lead = cleanName(row.lead);
+      const assist = cleanName(row.assist);
+      const isLead = teacher === 'all' || lead === teacher;
+      const dotCls = (teacher === 'all' || isLead) ? 'lead' : 'assist';
+      const roleText = teacher === 'all'
+        ? `${lead}${assist ? ' / ' + assist : ''}`
+        : (isLead ? `${lead} Lead` : `${assist} Assist`);
+      const examNote = row.examNote || getExamNote(row.className, row.progress || '');
+      const examBadge = examNote
+        ? `<div class="cal-list-exam${examNote.includes('大考') ? ' big' : ''}">${examNote}</div>`
+        : '';
+      const progressText = row.progress
+        ? `<div class="cal-list-progress">📖 ${row.progress}</div>`
+        : '';
+      const delData = `data-date="${row.date}" data-class="${row.className}" data-lead="${lead}" data-assist="${assist}"`;
+
+      html += `<div class="cal-list-item">
+        <div class="cal-list-dot ${dotCls}"></div>
+        <div class="cal-list-content">
+          <div class="cal-list-class">${row.className}</div>
+          <div class="cal-list-meta">${roleText} · ${row.hours}hr</div>
+          ${progressText}
+        </div>
+        ${examBadge}
+        <div class="cal-list-del" ${delData} onclick="deleteDetailChip(this)" title="刪除">🗑️</div>
+      </div>`;
+    });
+
+    html += `</div>`;
+  });
+
+  listWrap.innerHTML = html;
 }
 
 // ── 刪除月曆格子上的課程 ────────────────────────────────
