@@ -390,22 +390,123 @@
   .empty-state p { font-size: 15px; }
 
   .divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+
+  /* ── Login Gate ── */
+  #loginGate {
+    position: fixed; inset: 0; z-index: 9999;
+    background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .login-card {
+    width: 420px; max-width: calc(100vw - 32px);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 40px 36px;
+    box-shadow: 0 32px 80px rgba(0,0,0,0.6);
+    animation: loginSlide 0.4s cubic-bezier(0.16,1,0.3,1);
+  }
+  @keyframes loginSlide {
+    from { opacity: 0; transform: translateY(24px) scale(0.97); }
+    to   { opacity: 1; transform: none; }
+  }
+  .login-logo {
+    font-size: 28px; font-weight: 900; text-align: center; margin-bottom: 6px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .login-sub {
+    text-align: center; color: var(--muted); font-size: 13px; margin-bottom: 32px;
+  }
+  .login-field { margin-bottom: 16px; }
+  .login-field label {
+    display: block; font-size: 12px; font-weight: 600;
+    color: var(--muted); margin-bottom: 6px; letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .login-field input {
+    width: 100%; background: var(--surface2);
+    border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px 14px; color: var(--text); font-size: 14px;
+    transition: border-color 0.2s;
+  }
+  .login-field input:focus { outline: none; border-color: var(--accent); }
+  .login-field input.error { border-color: var(--red); }
+  .btn-login {
+    width: 100%; padding: 13px; border-radius: 10px; border: none;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: white; font-size: 15px; font-weight: 700; cursor: pointer;
+    margin-top: 8px; transition: all 0.2s; font-family: 'Noto Sans TC', sans-serif;
+  }
+  .btn-login:hover { filter: brightness(1.1); transform: translateY(-1px); }
+  .btn-login:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+  .login-error {
+    color: var(--red); font-size: 13px; margin-top: 12px; text-align: center;
+    min-height: 18px;
+  }
+  .login-hint {
+    text-align: center; color: var(--muted); font-size: 12px; margin-top: 20px;
+    padding-top: 20px; border-top: 1px solid var(--border);
+  }
+  /* user chip in topbar */
+  .user-chip {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 20px; padding: 5px 12px 5px 6px;
+    font-size: 13px; cursor: pointer;
+  }
+  .user-chip:hover { border-color: var(--red); color: var(--red); }
+  .user-avatar {
+    width: 24px; height: 24px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; color: white;
+  }
 </style>
 </head>
 <body>
 
+<!-- ══ LOGIN GATE ══ -->
+<div id="loginGate">
+  <div class="login-card">
+    <div class="login-logo">🚀 NewCore 月排課</div>
+    <div class="login-sub">管理員入口 · Admin Portal</div>
+
+    <div class="login-field">
+      <label>授權中心網址 (BRAIN_URL)</label>
+      <input type="text" id="loginBrainUrl" placeholder="https://script.google.com/macros/s/..." />
+    </div>
+    <div class="login-field">
+      <label>Admin 授權碼</label>
+      <input type="password" id="loginAuthCode" placeholder="輸入你的授權碼..."
+             onkeydown="if(event.key==='Enter') doLogin()" />
+    </div>
+    <button class="btn-login" id="loginBtn" onclick="doLogin()">🔐 登入</button>
+    <div class="login-error" id="loginError"></div>
+    <div class="login-hint">
+      使用 NewCore 授權中心的 admin 或 superadmin 授權碼登入<br>
+      <span style="color:var(--accent)">GAS URL 與授權碼會記住在此瀏覽器</span>
+    </div>
+  </div>
+</div>
+
 <!-- Top Bar -->
-<div class="topbar">
+<div class="topbar" id="mainTopbar" style="display:none">
   <div class="logo">🚀 NewCore 月排課</div>
   <div class="gas-url-wrap">
-    <input type="text" id="gasUrlInput" placeholder="貼上月排課 GAS 部署網址 (doGet/doPost)..." />
-    <button class="btn-connect" onclick="connectGAS()">連線</button>
+    <input type="text" id="gasUrlInput" placeholder="月排課 GAS 網址（登入後自動填入）..." />
+    <button class="btn-connect" onclick="connectGAS()">重連</button>
     <div class="conn-dot" id="connDot"></div>
+  </div>
+  <div class="user-chip" id="userChip" onclick="doLogout()" title="點擊登出">
+    <div class="user-avatar" id="userAvatar">A</div>
+    <span id="userLabel">admin</span>
+    <span style="color:var(--muted);font-size:11px">登出</span>
   </div>
 </div>
 
 <!-- Nav -->
-<div class="nav-tabs">
+<div class="nav-tabs" id="mainNav" style="display:none">
   <div class="nav-tab active" onclick="switchTab('calendar')">📅 月曆視圖</div>
   <div class="nav-tab" onclick="switchTab('picker')">🎯 班級更新</div>
   <div class="nav-tab" onclick="switchTab('hours')">⏱️ 時數統計</div>
@@ -414,7 +515,7 @@
 </div>
 
 <!-- ═══════════════════ CALENDAR ═══════════════════ -->
-<div class="main">
+<div class="main" id="mainContent" style="display:none">
   <div class="tab-pane active" id="tab-calendar">
     <div class="controls-row">
       <div class="ctrl-group">
@@ -609,21 +710,43 @@ const MONTH_COLORS = {
   9:'#EAF4E6',10:'#FEF7E0',11:'#F3E8FD',12:'#E2F7F9'
 };
 
+let BRAIN_URL = '';
 let GAS_URL = '';
+let currentUser = null; // { authCode, role, name }
 let isConnected = false;
-let scheduleData = []; // [{month, date, className, type, lead, assist, hours}]
+let scheduleData = [];
 let settingsData = [];
 let teacherList = [];
 let allClassNames = [];
 let isAllSelected = false;
 
-// Init
+// ═══════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════
 window.onload = () => {
-  const saved = localStorage.getItem('nc_gas_url');
-  if (saved) {
-    document.getElementById('gasUrlInput').value = saved;
-    connectGAS(true);
+  // Pre-fill saved BRAIN_URL
+  const savedBrain = localStorage.getItem('nc_brain_url');
+  if (savedBrain) document.getElementById('loginBrainUrl').value = savedBrain;
+
+  // Auto-login if session token exists
+  const savedSession = sessionStorage.getItem('nc_schedule_session');
+  if (savedSession) {
+    try {
+      const s = JSON.parse(savedSession);
+      if (s.authCode && s.brainUrl) {
+        document.getElementById('loginBrainUrl').value = s.brainUrl;
+        document.getElementById('loginAuthCode').value = s.authCode;
+        doLogin(true); // silent auto-login
+        return;
+      }
+    } catch(e) {}
   }
+
+  // Set default month/year selectors
+  setDefaultDateSelectors();
+};
+
+function setDefaultDateSelectors() {
   const m = new Date().getMonth() + 1;
   const y = new Date().getFullYear();
   ['selMonth','pickerMonth','hoursMonth','emailMonth'].forEach(id => {
@@ -634,7 +757,115 @@ window.onload = () => {
     const el = document.getElementById(id);
     if (el) el.value = y;
   });
-};
+}
+
+// ═══════════════════════════════════════════════════
+//  LOGIN / LOGOUT
+// ═══════════════════════════════════════════════════
+async function doLogin(silent = false) {
+  const brainUrl = document.getElementById('loginBrainUrl').value.trim();
+  const authCode = document.getElementById('loginAuthCode').value.trim();
+  const errEl = document.getElementById('loginError');
+  const btn = document.getElementById('loginBtn');
+
+  errEl.textContent = '';
+  document.getElementById('loginBrainUrl').classList.remove('error');
+  document.getElementById('loginAuthCode').classList.remove('error');
+
+  if (!brainUrl) {
+    document.getElementById('loginBrainUrl').classList.add('error');
+    errEl.textContent = '⚠️ 請填入授權中心網址';
+    return;
+  }
+  if (!authCode) {
+    document.getElementById('loginAuthCode').classList.add('error');
+    errEl.textContent = '⚠️ 請填入授權碼';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = '驗證中...';
+
+  try {
+    BRAIN_URL = brainUrl;
+    const result = await brainGet({ action: 'verifyMasterAuth', authCode });
+
+    if (result && result.valid) {
+      // Save to storage
+      localStorage.setItem('nc_brain_url', brainUrl);
+      sessionStorage.setItem('nc_schedule_session', JSON.stringify({ brainUrl, authCode }));
+
+      currentUser = {
+        authCode,
+        role: result.role || 'admin',
+        name: result.name || authCode.substring(0, 6) + '...'
+      };
+
+      // Update user chip
+      document.getElementById('userAvatar').textContent = (currentUser.name || 'A').charAt(0).toUpperCase();
+      document.getElementById('userLabel').textContent = currentUser.name || currentUser.role;
+
+      // Show main UI
+      document.getElementById('loginGate').style.display = 'none';
+      document.getElementById('mainTopbar').style.display = 'flex';
+      document.getElementById('mainNav').style.display = 'flex';
+      document.getElementById('mainContent').style.display = 'block';
+
+      setDefaultDateSelectors();
+
+      // Try to auto-connect GAS if saved
+      const savedGas = localStorage.getItem('nc_gas_url');
+      if (savedGas) {
+        document.getElementById('gasUrlInput').value = savedGas;
+        await connectGAS(true);
+      }
+
+    } else {
+      const msg = (result && result.error) ? result.error : '授權碼無效，請確認後重試';
+      errEl.textContent = '❌ ' + msg;
+      document.getElementById('loginAuthCode').classList.add('error');
+    }
+  } catch(e) {
+    errEl.textContent = '❌ 連線失敗：' + (e.message || '請確認授權中心網址是否正確');
+    document.getElementById('loginBrainUrl').classList.add('error');
+  }
+
+  btn.disabled = false;
+  btn.textContent = '🔐 登入';
+}
+
+function doLogout() {
+  if (!confirm('確定要登出嗎？')) return;
+  sessionStorage.removeItem('nc_schedule_session');
+  currentUser = null;
+  isConnected = false;
+  scheduleData = [];
+  GAS_URL = '';
+
+  document.getElementById('loginGate').style.display = 'flex';
+  document.getElementById('mainTopbar').style.display = 'none';
+  document.getElementById('mainNav').style.display = 'none';
+  document.getElementById('mainContent').style.display = 'none';
+  document.getElementById('loginAuthCode').value = '';
+  document.getElementById('loginError').textContent = '';
+  document.getElementById('connDot').className = 'conn-dot';
+}
+
+// BRAIN_URL JSONP helper
+async function brainGet(params) {
+  if (!BRAIN_URL) throw new Error('No BRAIN_URL');
+  const cbName = 'brain_cb_' + Date.now();
+  const qs = Object.entries(params).map(([k,v]) => `${k}=${encodeURIComponent(v)}`).join('&');
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    window[cbName] = d => { resolve(d); delete window[cbName]; s.remove(); };
+    s.src = `${BRAIN_URL}?${qs}&callback=${cbName}`;
+    s.onerror = () => { reject(new Error('JSONP failed')); delete window[cbName]; s.remove(); };
+    document.body.appendChild(s);
+    setTimeout(() => { if (window[cbName]) { reject(new Error('timeout')); delete window[cbName]; s.remove(); } }, 15000);
+  });
+}
+
 
 // ═══════════════════════════════════════════════════
 //  TAB SWITCHING
