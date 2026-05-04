@@ -1016,8 +1016,8 @@ async function gasGet(params) {
   if (!GAS_URL) throw new Error('No GAS URL');
   const qs = Object.entries(params).map(([k,v]) => `${k}=${encodeURIComponent(v)}`).join('&');
   const cbName = 'cb_' + Date.now();
-  // getScheduleDetail 需要串接進度表，給 60 秒；其他 action 給 20 秒
-  const timeoutMs = params.action === 'getScheduleDetail' ? 60000 : 20000;
+  // getScheduleDetail 和 getMonthlyEmailPreview 需要串接進度表，給 60 秒；其他給 20 秒
+  const timeoutMs = (params.action === 'getScheduleDetail' || params.action === 'getMonthlyEmailPreview') ? 60000 : 20000;
   return new Promise((resolve, reject) => {
     const s = document.createElement('script');
     window[cbName] = d => { resolve(d); delete window[cbName]; s.remove(); };
@@ -1529,27 +1529,48 @@ async function previewEmail() {
   if (!teacher) { showStatus('emailStatus','error','⚠️ 請選擇老師'); return; }
   if (!isConnected) { showStatus('emailStatus','error','⚠️ 請先連線 GAS'); return; }
 
-  showOverlay('產生月報預覽...');
   const frame = document.getElementById('emailFrame');
+  // 先顯示 loading 狀態
+  frame.className = 'email-preview-frame';
+  frame.innerHTML = `
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:300px;background:white;color:#666">
+      <div style="width:36px;height:36px;border:3px solid #ddd;border-top-color:#274e13;border-radius:50%;animation:spin 0.8s linear infinite;margin-bottom:16px"></div>
+      <div style="font-size:15px;font-weight:600;color:#333">產生月報預覽中...</div>
+      <div style="font-size:13px;margin-top:8px;color:#888">正在串接進度表，約需 20~30 秒</div>
+    </div>
+    <style>@keyframes spin{to{transform:rotate(360deg)}}</style>`;
+
+  showStatus('emailStatus','loading','⏳ 正在串接進度表，請稍候...');
+
   try {
     const r = await gasGet({ action: 'getMonthlyEmailPreview', teacher, month, year });
     if (r && r.html) {
       frame.innerHTML = `<div style="padding:20px">${r.html}</div>`;
-      frame.className = 'email-preview-frame';
-      showStatus('emailStatus','success','✅ 預覽產生成功');
+      showStatus('emailStatus','success',`✅ 預覽完成（${r.rowCount || 0} 堂課）`);
+    } else if (r && r.ok === false) {
+      throw new Error(r.error || 'GAS 回傳錯誤');
     } else {
-      // Generate local preview
-      const localHtml = buildLocalEmailPreview(teacher, month, year);
-      frame.innerHTML = `<div style="padding:20px">${localHtml}</div>`;
-      frame.className = 'email-preview-frame';
-      showStatus('emailStatus','success','✅ 本地預覽（GAS 需要 getMonthlyEmailPreview action）');
+      // 沒有 html 但也沒報錯，用本地版
+      frame.innerHTML = `<div style="padding:20px">${buildLocalEmailPreview(teacher, month, year)}</div>`;
+      showStatus('emailStatus','success','✅ 預覽完成（本地版，無進度資料）');
     }
   } catch(e) {
-    const localHtml = buildLocalEmailPreview(teacher, month, year);
-    frame.innerHTML = `<div style="padding:20px">${localHtml}</div>`;
-    frame.className = 'email-preview-frame';
+    const isTimeout = e.message.includes('timeout');
+    frame.innerHTML = `
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:300px;background:white">
+        <div style="font-size:32px;margin-bottom:12px">${isTimeout ? '⏱️' : '❌'}</div>
+        <div style="font-size:15px;font-weight:600;color:#333;margin-bottom:8px">
+          ${isTimeout ? '進度表串接逾時' : '預覽載入失敗'}
+        </div>
+        <div style="font-size:13px;color:#888;margin-bottom:16px">
+          ${isTimeout ? '進度資料較多，請稍後再試' : e.message}
+        </div>
+        <button onclick="previewEmail()" style="padding:8px 20px;border-radius:8px;border:none;background:#274e13;color:white;cursor:pointer;font-size:14px">
+          🔄 重新嘗試
+        </button>
+      </div>`;
+    showStatus('emailStatus','error', isTimeout ? '⏱️ 逾時，請按「重新嘗試」' : '❌ ' + e.message);
   }
-  hideOverlay();
 }
 
 function buildLocalEmailPreview(teacher, month, year) {
