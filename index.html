@@ -473,19 +473,14 @@
     <div class="login-sub">管理員入口 · Admin Portal</div>
 
     <div class="login-field">
-      <label>授權中心網址 (BRAIN_URL)</label>
-      <input type="text" id="loginBrainUrl" placeholder="https://script.google.com/macros/s/..." />
-    </div>
-    <div class="login-field">
       <label>Admin 授權碼</label>
-      <input type="password" id="loginAuthCode" placeholder="輸入你的授權碼..."
-             onkeydown="if(event.key==='Enter') doLogin()" />
+      <input type="password" id="loginAuthCode" placeholder="輸入你的 admin 授權碼..."
+             onkeydown="if(event.key==='Enter') doLogin()" autofocus />
     </div>
     <button class="btn-login" id="loginBtn" onclick="doLogin()">🔐 登入</button>
     <div class="login-error" id="loginError"></div>
     <div class="login-hint">
-      使用 NewCore 授權中心的 admin 或 superadmin 授權碼登入<br>
-      <span style="color:var(--accent)">GAS URL 與授權碼會記住在此瀏覽器</span>
+      使用 NewCore 授權中心的 admin 或 superadmin 授權碼登入
     </div>
   </div>
 </div>
@@ -710,7 +705,15 @@ const MONTH_COLORS = {
   9:'#EAF4E6',10:'#FEF7E0',11:'#F3E8FD',12:'#E2F7F9'
 };
 
-let BRAIN_URL = '';
+// ══ HARDCODED CONFIG ══════════════════════════════
+// ⚠️ 請把下面換成你授權中心（程式碼.gs）的完整部署網址
+// 前綴是 AKfycbyF9mEn3...
+const HARDCODED_BRAIN_URL = 'https://script.google.com/macros/s/AKfycbyd852tVzBVNYAn7FVEmvOAnQB_ZQGkm3mR6ui9kFM9kRM8a8Ap1Uk-a24zVDm31n9x_g/exec';
+// 月排課 GAS 網址 — 可在 topbar 手動修改
+const DEFAULT_GAS_URL = '';
+// ══════════════════════════════════════════════════
+
+let BRAIN_URL = HARDCODED_BRAIN_URL;
 let GAS_URL = '';
 let currentUser = null; // { authCode, role, name }
 let isConnected = false;
@@ -733,10 +736,9 @@ window.onload = () => {
   if (savedSession) {
     try {
       const s = JSON.parse(savedSession);
-      if (s.authCode && s.brainUrl) {
-        document.getElementById('loginBrainUrl').value = s.brainUrl;
+      if (s.authCode) {
         document.getElementById('loginAuthCode').value = s.authCode;
-        doLogin(true); // silent auto-login
+        doLogin(true);
         return;
       }
     } catch(e) {}
@@ -763,20 +765,13 @@ function setDefaultDateSelectors() {
 //  LOGIN / LOGOUT
 // ═══════════════════════════════════════════════════
 async function doLogin(silent = false) {
-  const brainUrl = document.getElementById('loginBrainUrl').value.trim();
   const authCode = document.getElementById('loginAuthCode').value.trim();
   const errEl = document.getElementById('loginError');
   const btn = document.getElementById('loginBtn');
 
   errEl.textContent = '';
-  document.getElementById('loginBrainUrl').classList.remove('error');
   document.getElementById('loginAuthCode').classList.remove('error');
 
-  if (!brainUrl) {
-    document.getElementById('loginBrainUrl').classList.add('error');
-    errEl.textContent = '⚠️ 請填入授權中心網址';
-    return;
-  }
   if (!authCode) {
     document.getElementById('loginAuthCode').classList.add('error');
     errEl.textContent = '⚠️ 請填入授權碼';
@@ -787,13 +782,11 @@ async function doLogin(silent = false) {
   btn.textContent = '驗證中...';
 
   try {
-    BRAIN_URL = brainUrl;
     const result = await brainGet({ action: 'verifyMasterAuth', authCode });
 
     if (result && result.valid) {
       // Save to storage
-      localStorage.setItem('nc_brain_url', brainUrl);
-      sessionStorage.setItem('nc_schedule_session', JSON.stringify({ brainUrl, authCode }));
+      sessionStorage.setItem('nc_schedule_session', JSON.stringify({ authCode }));
 
       currentUser = {
         authCode,
@@ -826,8 +819,7 @@ async function doLogin(silent = false) {
       document.getElementById('loginAuthCode').classList.add('error');
     }
   } catch(e) {
-    errEl.textContent = '❌ 連線失敗：' + (e.message || '請確認授權中心網址是否正確');
-    document.getElementById('loginBrainUrl').classList.add('error');
+    errEl.textContent = '❌ 連線失敗：' + (e.message || '請稍後再試');
   }
 
   btn.disabled = false;
