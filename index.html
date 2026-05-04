@@ -473,14 +473,15 @@
     <div class="login-sub">管理員入口 · Admin Portal</div>
 
     <div class="login-field">
-      <label>Admin 授權碼</label>
-      <input type="password" id="loginAuthCode" placeholder="輸入你的 admin 授權碼..."
+      <label>存取密碼</label>
+      <input type="password" id="loginAuthCode" placeholder="輸入月排課系統密碼..."
              onkeydown="if(event.key==='Enter') doLogin()" autofocus />
     </div>
     <button class="btn-login" id="loginBtn" onclick="doLogin()">🔐 登入</button>
     <div class="login-error" id="loginError"></div>
     <div class="login-hint">
-      使用 NewCore 授權中心的 admin 或 superadmin 授權碼登入
+      月排課系統管理員入口<br>
+      <span style="color:var(--accent)">密碼設定於 GAS Script Properties（WEB_PASSWORD）</span>
     </div>
   </div>
 </div>
@@ -706,11 +707,11 @@ const MONTH_COLORS = {
 };
 
 // ══ HARDCODED CONFIG ══════════════════════════════
-const HARDCODED_BRAIN_URL = 'https://script.google.com/macros/s/AKfycbyd852tVzBVNYAn7FVEmvOAnQB_ZQGkm3mR6ui9kFM9kRM8a8Ap1Uk-a24zVDm31n9x_g/exec';
+// 月排課 GAS 網址（同時做 API + 登入驗證）
 const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbxaxdc_F9-y_IgW2ah5kyqvGJ8lSKLBJIOesILXYaYjDABTSh1YN7SKSZ2n6Hj7WpLleA/exec';
 // ══════════════════════════════════════════════════
 
-let BRAIN_URL = HARDCODED_BRAIN_URL;
+let BRAIN_URL = DEFAULT_GAS_URL; // 暫時指向 GAS，未來改為授權中心
 let GAS_URL = '';
 let currentUser = null; // { authCode, role, name }
 let isConnected = false;
@@ -733,8 +734,8 @@ window.onload = () => {
   if (savedSession) {
     try {
       const s = JSON.parse(savedSession);
-      if (s.authCode) {
-        document.getElementById('loginAuthCode').value = s.authCode;
+      if (s.password) {
+        document.getElementById('loginAuthCode').value = s.password;
         doLogin(true);
         return;
       }
@@ -762,16 +763,16 @@ function setDefaultDateSelectors() {
 //  LOGIN / LOGOUT
 // ═══════════════════════════════════════════════════
 async function doLogin(silent = false) {
-  const authCode = document.getElementById('loginAuthCode').value.trim();
+  const password = document.getElementById('loginAuthCode').value.trim();
   const errEl = document.getElementById('loginError');
   const btn = document.getElementById('loginBtn');
 
   errEl.textContent = '';
   document.getElementById('loginAuthCode').classList.remove('error');
 
-  if (!authCode) {
+  if (!password) {
     document.getElementById('loginAuthCode').classList.add('error');
-    errEl.textContent = '⚠️ 請填入授權碼';
+    errEl.textContent = '⚠️ 請填入密碼';
     return;
   }
 
@@ -779,44 +780,41 @@ async function doLogin(silent = false) {
   btn.textContent = '驗證中...';
 
   try {
-    const result = await brainGet({ action: 'verifyMasterAuth', authCode });
+    // 直接呼叫月排課 GAS 的 verifyAccess
+    GAS_URL = DEFAULT_GAS_URL;
+    const result = await gasGet({ action: 'verifyAccess', password });
 
     if (result && result.valid) {
-      // Save to storage
-      sessionStorage.setItem('nc_schedule_session', JSON.stringify({ authCode }));
+      sessionStorage.setItem('nc_schedule_session', JSON.stringify({ password }));
 
       currentUser = {
-        authCode,
+        password,
         role: result.role || 'admin',
-        name: result.name || authCode.substring(0, 6) + '...'
+        name: result.name || 'Admin'
       };
 
-      // Update user chip
-      document.getElementById('userAvatar').textContent = (currentUser.name || 'A').charAt(0).toUpperCase();
-      document.getElementById('userLabel').textContent = currentUser.name || currentUser.role;
+      document.getElementById('userAvatar').textContent = '👤';
+      document.getElementById('userLabel').textContent = currentUser.name;
 
-      // Show main UI
       document.getElementById('loginGate').style.display = 'none';
       document.getElementById('mainTopbar').style.display = 'flex';
       document.getElementById('mainNav').style.display = 'flex';
       document.getElementById('mainContent').style.display = 'block';
 
-      setDefaultDateSelectors();
+      document.getElementById('gasUrlInput').value = DEFAULT_GAS_URL;
+      isConnected = true;
+      document.getElementById('connDot').className = 'conn-dot connected';
 
-      // Try to auto-connect GAS if saved, or use default
-      const savedGas = localStorage.getItem('nc_gas_url') || DEFAULT_GAS_URL;
-      if (savedGas) {
-        document.getElementById('gasUrlInput').value = savedGas;
-        await connectGAS(true);
-      }
+      setDefaultDateSelectors();
+      await loadScheduleData();
 
     } else {
-      const msg = (result && result.error) ? result.error : '授權碼無效，請確認後重試';
+      const msg = (result && result.error) ? result.error : '密碼錯誤，請重試';
       errEl.textContent = '❌ ' + msg;
       document.getElementById('loginAuthCode').classList.add('error');
     }
   } catch(e) {
-    errEl.textContent = '❌ 連線失敗：' + (e.message || '請稍後再試');
+    errEl.textContent = '❌ 連線失敗：GAS 尚未部署 addon，或網址有誤';
   }
 
   btn.disabled = false;
