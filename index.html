@@ -184,6 +184,14 @@
     color: var(--orange); border-radius: 3px; padding: 1px 4px; margin-left: 3px;
   }
   .class-chip .exam-badge.big { background: rgba(224,82,82,0.2); color: var(--red); }
+  .chip-del {
+    position: absolute; top: 3px; right: 3px;
+    font-size: 10px; color: var(--muted); cursor: pointer;
+    width: 14px; height: 14px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    line-height: 1; transition: all 0.15s;
+  }
+  .chip-del:hover { background: var(--red); color: white; }
 
   .holiday-label {
     display: block; font-size: 10px; color: var(--red); margin-top: 2px;
@@ -1086,12 +1094,17 @@ function renderCalendar() {
       const assist = cleanName(row.assist);
       const isLead = teacher === 'all' || lead === teacher;
       const chipCls = (teacher === 'all' || isLead) ? 'lead' : 'assist';
-      // 優先用 GAS 回傳的 examNote，否則前端自行計算
       const examNote = row.examNote || getExamNote(row.className, row.progress || '');
       const examBadge = examNote ? `<span class="exam-badge${examNote.includes('大考') ? ' big' : ''}">${examNote}</span>` : '';
       const roleShort = teacher === 'all' ? `${lead}/${assist}` : (isLead ? `${lead} Lead` : `${assist} Assist`);
       const progressText = row.progress ? `<br><span style="opacity:.6;font-size:10px">📖 ${row.progress}</span>` : '';
-      html += `<span class="class-chip ${chipCls}">● ${row.className}${examBadge}<br><span style="opacity:.7;font-size:10px">${roleShort}</span>${progressText}</span>`;
+      // 刪除按鈕 data 屬性
+      const delData = `data-date="${row.date}" data-class="${row.className}" data-lead="${lead}" data-assist="${assist}"`;
+      html += `<span class="class-chip ${chipCls}" style="position:relative;padding-right:18px">
+        ● ${row.className}${examBadge}<br>
+        <span style="opacity:.7;font-size:10px">${roleShort}</span>${progressText}
+        <span class="chip-del" ${delData} onclick="deleteDetailChip(this)" title="刪除這筆排課">✕</span>
+      </span>`;
     });
 
     html += `</div>`;
@@ -1106,6 +1119,36 @@ function renderCalendar() {
 
   html += `</div>`;
   wrap.innerHTML = html;
+}
+
+// ── 刪除月曆格子上的課程 ────────────────────────────────
+async function deleteDetailChip(el) {
+  const date      = el.dataset.date;
+  const className = el.dataset.class;
+  const lead      = el.dataset.lead;
+  const assist    = el.dataset.assist;
+
+  if (!confirm(`確定刪除這筆排課？\n\n📅 ${date}\n🏫 ${className}\n👤 ${lead}${assist ? ' / ' + assist : ''}\n\n此動作不可復原。`)) return;
+
+  showOverlay('刪除中...');
+  try {
+    const r = await gasPost({ action: 'deleteDetailRow', date, className, lead, assist });
+    hideOverlay();
+    if (r?.ok) {
+      // 從本地資料移除，重新渲染（不需要重新載入全部）
+      scheduleData = scheduleData.filter(row =>
+        !(row.date === date && row.className === className &&
+          cleanName(row.lead) === lead && cleanName(row.assist) === assist)
+      );
+      renderCalendar();
+      showStatus('calStatus','success',`✅ 已刪除 ${className} ${date} 的排課`);
+    } else {
+      showStatus('calStatus','error','❌ ' + (r?.error || '刪除失敗'));
+    }
+  } catch(e) {
+    hideOverlay();
+    showStatus('calStatus','error','❌ ' + e.message);
+  }
 }
 
 // ═══════════════════════════════════════════════════
