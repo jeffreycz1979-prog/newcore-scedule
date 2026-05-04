@@ -1,0 +1,1246 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NewCore 月排課系統</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #22263a;
+    --border: #2e3250;
+    --accent: #4f8ef7;
+    --accent2: #7c5cfc;
+    --green: #34c97e;
+    --orange: #f5a623;
+    --red: #e05252;
+    --text: #e8eaf0;
+    --muted: #6b7394;
+    --radius: 12px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Noto Sans TC', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Top Bar ── */
+  .topbar {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(15,17,23,0.85);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 16px;
+    padding: 12px 24px;
+  }
+  .topbar .logo {
+    font-size: 18px; font-weight: 900;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    white-space: nowrap;
+  }
+  .topbar .sep { flex: 1; }
+  .gas-url-wrap {
+    display: flex; align-items: center; gap: 8px; flex: 1; max-width: 500px;
+  }
+  .gas-url-wrap input {
+    flex: 1; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 7px 12px; color: var(--text); font-size: 12px;
+    font-family: 'DM Mono', monospace;
+  }
+  .gas-url-wrap input:focus { outline: none; border-color: var(--accent); }
+  .btn-connect {
+    padding: 7px 16px; border-radius: 8px; border: none;
+    background: var(--accent); color: white; font-size: 13px;
+    font-weight: 600; cursor: pointer; white-space: nowrap;
+    transition: all 0.2s;
+  }
+  .btn-connect:hover { background: #3d7de8; }
+  .conn-dot {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--muted);
+    transition: all 0.4s;
+  }
+  .conn-dot.connected { background: var(--green); box-shadow: 0 0 8px var(--green); }
+
+  /* ── Nav Tabs ── */
+  .nav-tabs {
+    display: flex; gap: 4px; padding: 16px 24px 0;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
+  }
+  .nav-tab {
+    padding: 10px 20px; border-radius: var(--radius) var(--radius) 0 0;
+    border: 1px solid transparent; border-bottom: none;
+    cursor: pointer; font-size: 14px; font-weight: 500;
+    color: var(--muted); background: transparent;
+    white-space: nowrap; transition: all 0.2s;
+  }
+  .nav-tab:hover { color: var(--text); background: var(--surface2); }
+  .nav-tab.active {
+    color: var(--accent); background: var(--surface);
+    border-color: var(--border);
+  }
+
+  /* ── Main Content ── */
+  .main { padding: 24px; max-width: 1400px; margin: 0 auto; }
+  .tab-pane { display: none; }
+  .tab-pane.active { display: block; }
+
+  /* ── Controls Row ── */
+  .controls-row {
+    display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+  .ctrl-group { display: flex; align-items: center; gap: 8px; }
+  .ctrl-label { font-size: 12px; color: var(--muted); white-space: nowrap; }
+  select, input[type="number"], input[type="text"] {
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); border-radius: 8px; padding: 8px 12px; font-size: 14px;
+    font-family: 'Noto Sans TC', sans-serif;
+  }
+  select:focus, input:focus { outline: none; border-color: var(--accent); }
+
+  .btn {
+    padding: 9px 18px; border-radius: 8px; border: none;
+    font-size: 14px; font-weight: 600; cursor: pointer;
+    transition: all 0.2s; font-family: 'Noto Sans TC', sans-serif;
+  }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-primary:hover { background: #3d7de8; transform: translateY(-1px); }
+  .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-success { background: var(--green); color: #0f1117; }
+  .btn-success:hover { filter: brightness(1.1); }
+  .btn-danger { background: var(--red); color: white; }
+  .btn-sm { padding: 6px 12px; font-size: 12px; }
+
+  /* ── Status Bar ── */
+  .status-bar {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px 16px;
+    font-size: 13px; color: var(--muted); margin-bottom: 16px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .status-bar.loading { color: var(--accent); }
+  .status-bar.success { color: var(--green); border-color: var(--green); }
+  .status-bar.error { color: var(--red); border-color: var(--red); }
+
+  /* ── Calendar ── */
+  .calendar-wrap { animation: fadeIn 0.3s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+  .cal-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 16px;
+  }
+  .cal-title { font-size: 24px; font-weight: 900; }
+  .teacher-filter-wrap { display: flex; align-items: center; gap: 8px; }
+
+  .cal-grid {
+    display: grid; grid-template-columns: repeat(7, 1fr);
+    gap: 2px; background: var(--border);
+    border-radius: var(--radius); overflow: hidden;
+  }
+  .cal-day-header {
+    background: var(--surface2); padding: 10px;
+    text-align: center; font-size: 13px; font-weight: 600;
+    color: var(--muted);
+  }
+  .cal-day-header:first-child { color: #e05252; }
+  .cal-day-header:last-child { color: var(--accent); }
+
+  .cal-cell {
+    background: var(--surface); min-height: 110px;
+    padding: 8px; vertical-align: top; position: relative;
+    transition: background 0.15s;
+  }
+  .cal-cell:hover { background: var(--surface2); }
+  .cal-cell.empty { background: rgba(26,29,39,0.4); }
+  .cal-cell.holiday { background: rgba(224,82,82,0.06); }
+  .cal-cell.today { box-shadow: inset 0 0 0 2px var(--accent); }
+
+  .cal-date {
+    font-size: 12px; font-weight: 700; color: var(--muted);
+    margin-bottom: 6px; display: block;
+  }
+  .cal-cell.today .cal-date { color: var(--accent); }
+  .cal-cell.holiday .cal-date { color: var(--red); }
+
+  .class-chip {
+    display: block; border-radius: 5px; padding: 3px 6px; margin-bottom: 3px;
+    font-size: 11px; line-height: 1.4; font-weight: 500;
+  }
+  .class-chip.lead { background: rgba(79,142,247,0.15); color: #8ab4f8; }
+  .class-chip.assist { background: rgba(52,201,126,0.12); color: #6ee7a8; }
+  .class-chip .exam-badge {
+    display: inline-block; font-size: 9px; background: rgba(245,166,35,0.2);
+    color: var(--orange); border-radius: 3px; padding: 1px 4px; margin-left: 3px;
+  }
+  .class-chip .exam-badge.big { background: rgba(224,82,82,0.2); color: var(--red); }
+
+  .holiday-label {
+    display: block; font-size: 10px; color: var(--red); margin-top: 2px;
+    font-weight: 500;
+  }
+
+  /* ── Picker Panel ── */
+  .picker-panel {
+    display: grid; grid-template-columns: 280px 1fr; gap: 20px;
+  }
+  .picker-list-wrap {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); overflow: hidden;
+  }
+  .picker-list-head {
+    padding: 14px 16px; border-bottom: 1px solid var(--border);
+    font-weight: 700; font-size: 14px; display: flex;
+    justify-content: space-between; align-items: center;
+  }
+  .class-check-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 16px; border-bottom: 1px solid rgba(46,50,80,0.5);
+    cursor: pointer; transition: background 0.15s;
+  }
+  .class-check-item:hover { background: var(--surface2); }
+  .class-check-item input[type="checkbox"] {
+    width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer;
+  }
+  .class-check-item label { cursor: pointer; flex: 1; font-size: 14px; }
+
+  .picker-status {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 20px;
+  }
+  .picker-status h3 { font-size: 16px; margin-bottom: 12px; color: var(--accent); }
+  .selected-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(79,142,247,0.12); border: 1px solid rgba(79,142,247,0.3);
+    color: var(--accent); border-radius: 20px; padding: 4px 10px;
+    font-size: 12px; margin: 4px; font-weight: 500;
+  }
+  .action-log {
+    background: #0d0f16; border-radius: 8px; padding: 12px;
+    font-family: 'DM Mono', monospace; font-size: 12px;
+    color: var(--muted); max-height: 200px; overflow-y: auto;
+    margin-top: 12px; line-height: 1.8;
+  }
+  .log-ok { color: var(--green); }
+  .log-err { color: var(--red); }
+  .log-info { color: var(--accent); }
+
+  /* ── Stats / Hours ── */
+  .stats-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px; margin-bottom: 24px;
+  }
+  .stat-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 20px;
+    transition: transform 0.2s, border-color 0.2s;
+  }
+  .stat-card:hover { transform: translateY(-2px); border-color: var(--accent2); }
+  .stat-teacher { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+  .stat-total {
+    font-size: 36px; font-weight: 900; line-height: 1;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .stat-total-unit { font-size: 14px; font-weight: 400; color: var(--muted); margin-left: 4px; }
+  .stat-breakdown {
+    display: flex; gap: 12px; margin-top: 12px;
+    padding-top: 12px; border-top: 1px solid var(--border);
+  }
+  .stat-item { flex: 1; text-align: center; }
+  .stat-item .val { font-size: 20px; font-weight: 700; font-family: 'DM Mono', monospace; }
+  .stat-item .lbl { font-size: 10px; color: var(--muted); margin-top: 2px; }
+  .stat-item.lead .val { color: var(--accent); }
+  .stat-item.assist .val { color: var(--green); }
+  .stat-item.sub .val { color: var(--orange); }
+
+  .hours-table {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); overflow: hidden;
+    width: 100%;
+  }
+  .hours-table table { width: 100%; border-collapse: collapse; }
+  .hours-table th {
+    background: var(--surface2); padding: 12px 16px; text-align: left;
+    font-size: 13px; color: var(--muted); font-weight: 600;
+    border-bottom: 1px solid var(--border);
+  }
+  .hours-table td {
+    padding: 11px 16px; font-size: 14px;
+    border-bottom: 1px solid rgba(46,50,80,0.4);
+  }
+  .hours-table tr:hover td { background: var(--surface2); }
+  .hours-table tr.teacher-row td { font-weight: 700; color: var(--accent2); background: rgba(124,92,252,0.06); }
+
+  /* ── Email Preview ── */
+  .email-preview-wrap {
+    display: grid; grid-template-columns: 300px 1fr; gap: 20px;
+  }
+  .email-config {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 20px;
+  }
+  .email-config h3 { font-size: 15px; font-weight: 700; margin-bottom: 16px; }
+  .form-group { margin-bottom: 14px; }
+  .form-group label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; }
+  .form-group select, .form-group input {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); border-radius: 8px; padding: 9px 12px; font-size: 14px;
+  }
+  .email-preview-frame {
+    background: white; border-radius: var(--radius);
+    overflow: auto; max-height: 800px; min-height: 400px;
+  }
+  .email-preview-placeholder {
+    display: flex; align-items: center; justify-content: center;
+    height: 400px; color: #888; font-size: 15px; background: white;
+    border-radius: var(--radius);
+  }
+
+  /* ── Settings ── */
+  .settings-table-wrap {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); overflow: hidden;
+  }
+  .settings-table-wrap table { width: 100%; border-collapse: collapse; }
+  .settings-table-wrap th {
+    background: var(--surface2); padding: 10px 12px; text-align: left;
+    font-size: 12px; color: var(--muted); font-weight: 600;
+    border-bottom: 1px solid var(--border);
+  }
+  .settings-table-wrap td {
+    padding: 10px 12px; font-size: 13px;
+    border-bottom: 1px solid rgba(46,50,80,0.4);
+  }
+  .settings-table-wrap tr:hover td { background: var(--surface2); }
+  .cycle-dot {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px; border-radius: 50%; font-size: 10px;
+    font-weight: 700; margin: 1px;
+  }
+  .cycle-dot.on { background: rgba(79,142,247,0.25); color: var(--accent); }
+  .cycle-dot.off { background: var(--surface2); color: var(--muted); }
+
+  /* ── Overlay Loader ── */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(15,17,23,0.7);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 999; backdrop-filter: blur(4px);
+    opacity: 0; pointer-events: none; transition: opacity 0.3s;
+  }
+  .overlay.show { opacity: 1; pointer-events: all; }
+  .loader-box {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 40px 48px; text-align: center;
+  }
+  .spinner {
+    width: 40px; height: 40px; border-radius: 50%;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 16px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loader-msg { font-size: 14px; color: var(--muted); }
+
+  /* ── Responsive ── */
+  @media (max-width: 768px) {
+    .topbar { padding: 10px 14px; gap: 10px; flex-wrap: wrap; }
+    .gas-url-wrap { width: 100%; order: 3; max-width: 100%; }
+    .topbar .logo { font-size: 15px; }
+    .main { padding: 12px; }
+    .nav-tabs { padding: 10px 12px 0; gap: 2px; }
+    .nav-tab { padding: 8px 12px; font-size: 13px; }
+    .controls-row { flex-direction: column; align-items: stretch; }
+    .ctrl-group { width: 100%; }
+    .ctrl-group select, .ctrl-group input { flex: 1; }
+    .cal-grid { gap: 1px; }
+    .cal-cell { min-height: 70px; padding: 5px; }
+    .cal-date { font-size: 11px; }
+    .class-chip { font-size: 10px; }
+    .picker-panel { grid-template-columns: 1fr; }
+    .stats-grid { grid-template-columns: 1fr; }
+    .email-preview-wrap { grid-template-columns: 1fr; }
+    .hours-table th, .hours-table td { padding: 9px 10px; font-size: 12px; }
+  }
+
+  /* ── Misc ── */
+  .badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 700;
+  }
+  .badge-blue { background: rgba(79,142,247,0.15); color: var(--accent); }
+  .badge-green { background: rgba(52,201,126,0.15); color: var(--green); }
+  .badge-orange { background: rgba(245,166,35,0.15); color: var(--orange); }
+  .badge-red { background: rgba(224,82,82,0.15); color: var(--red); }
+  .empty-state {
+    text-align: center; padding: 60px 20px; color: var(--muted);
+  }
+  .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+  .empty-state p { font-size: 15px; }
+
+  .divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+</style>
+</head>
+<body>
+
+<!-- Top Bar -->
+<div class="topbar">
+  <div class="logo">🚀 NewCore 月排課</div>
+  <div class="gas-url-wrap">
+    <input type="text" id="gasUrlInput" placeholder="貼上月排課 GAS 部署網址 (doGet/doPost)..." />
+    <button class="btn-connect" onclick="connectGAS()">連線</button>
+    <div class="conn-dot" id="connDot"></div>
+  </div>
+</div>
+
+<!-- Nav -->
+<div class="nav-tabs">
+  <div class="nav-tab active" onclick="switchTab('calendar')">📅 月曆視圖</div>
+  <div class="nav-tab" onclick="switchTab('picker')">🎯 班級更新</div>
+  <div class="nav-tab" onclick="switchTab('hours')">⏱️ 時數統計</div>
+  <div class="nav-tab" onclick="switchTab('email')">📧 月報預覽</div>
+  <div class="nav-tab" onclick="switchTab('settings')">⚙️ 排課設定</div>
+</div>
+
+<!-- ═══════════════════ CALENDAR ═══════════════════ -->
+<div class="main">
+  <div class="tab-pane active" id="tab-calendar">
+    <div class="controls-row">
+      <div class="ctrl-group">
+        <span class="ctrl-label">年份</span>
+        <input type="number" id="selYear" value="2026" style="width:90px" onchange="renderCalendar()">
+        <span class="ctrl-label">月份</span>
+        <select id="selMonth" onchange="renderCalendar()">
+          <option value="1">1月</option><option value="2">2月</option>
+          <option value="3">3月</option><option value="4">4月</option>
+          <option value="5">5月</option><option value="6">6月</option>
+          <option value="7">7月</option><option value="8">8月</option>
+          <option value="9">9月</option><option value="10">10月</option>
+          <option value="11">11月</option><option value="12">12月</option>
+        </select>
+      </div>
+      <div class="ctrl-group">
+        <span class="ctrl-label">老師篩選</span>
+        <select id="filterTeacher" onchange="renderCalendar()">
+          <option value="all">全部老師</option>
+        </select>
+      </div>
+      <div class="ctrl-group" style="margin-left:auto">
+        <button class="btn btn-secondary" onclick="loadScheduleData()">🔄 重新載入</button>
+        <button class="btn btn-primary" onclick="runCalendarUpdate()">🔁 更新月曆</button>
+      </div>
+    </div>
+    <div id="calStatus" class="status-bar" style="display:none"></div>
+    <div class="calendar-wrap" id="calWrap"></div>
+  </div>
+
+  <!-- ═══════════════════ PICKER ═══════════════════ -->
+  <div class="tab-pane" id="tab-picker">
+    <div class="controls-row">
+      <div class="ctrl-group">
+        <span class="ctrl-label">更新月份</span>
+        <input type="number" id="pickerYear" value="2026" style="width:90px">
+        <select id="pickerMonth">
+          <option value="1">1月</option><option value="2">2月</option>
+          <option value="3">3月</option><option value="4">4月</option>
+          <option value="5">5月</option><option value="6">6月</option>
+          <option value="7">7月</option><option value="8">8月</option>
+          <option value="9">9月</option><option value="10">10月</option>
+          <option value="11">11月</option><option value="12">12月</option>
+        </select>
+      </div>
+      <div class="ctrl-group" style="margin-left:auto">
+        <button class="btn btn-secondary" onclick="loadClasses()">🔄 重新載入班級</button>
+        <button class="btn btn-success" onclick="runUpdateSelected()">🚀 更新選中班級</button>
+      </div>
+    </div>
+    <div id="pickerStatus" class="status-bar" style="display:none"></div>
+    <div class="picker-panel">
+      <div>
+        <div class="picker-list-wrap">
+          <div class="picker-list-head">
+            <span>班級清單</span>
+            <button class="btn btn-secondary btn-sm" onclick="toggleAllClasses()">全選/取消</button>
+          </div>
+          <div id="classCheckList">
+            <div class="empty-state"><div class="icon">📋</div><p>請先連線 GAS</p></div>
+          </div>
+        </div>
+      </div>
+      <div class="picker-status">
+        <h3>已選班級</h3>
+        <div id="selectedBadges" style="min-height:40px">
+          <span style="color:var(--muted);font-size:13px">尚未選擇</span>
+        </div>
+        <hr class="divider">
+        <h3 style="margin-top:0">執行記錄</h3>
+        <div class="action-log" id="actionLog">等待執行...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ HOURS ═══════════════════ -->
+  <div class="tab-pane" id="tab-hours">
+    <div class="controls-row">
+      <div class="ctrl-group">
+        <span class="ctrl-label">月份</span>
+        <input type="number" id="hoursYear" value="2026" style="width:90px">
+        <select id="hoursMonth">
+          <option value="1">1月</option><option value="2">2月</option>
+          <option value="3">3月</option><option value="4">4月</option>
+          <option value="5">5月</option><option value="6">6月</option>
+          <option value="7">7月</option><option value="8">8月</option>
+          <option value="9">9月</option><option value="10">10月</option>
+          <option value="11">11月</option><option value="12">12月</option>
+        </select>
+      </div>
+      <div class="ctrl-group" style="margin-left:auto">
+        <button class="btn btn-primary" onclick="loadHoursReport()">📊 生成統計</button>
+      </div>
+    </div>
+    <div id="hoursStatus" class="status-bar" style="display:none"></div>
+    <div id="statsGrid" class="stats-grid"></div>
+    <div class="hours-table" id="hoursTable" style="display:none">
+      <table>
+        <thead>
+          <tr>
+            <th>老師</th><th>班級</th>
+            <th>主教時數</th><th>助教時數</th><th>代課時數</th><th>班級小計</th>
+          </tr>
+        </thead>
+        <tbody id="hoursTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ EMAIL PREVIEW ═══════════════════ -->
+  <div class="tab-pane" id="tab-email">
+    <div class="email-preview-wrap">
+      <div class="email-config">
+        <h3>📧 月報設定</h3>
+        <div class="form-group">
+          <label>老師姓名</label>
+          <select id="emailTeacher">
+            <option value="">— 選擇老師 —</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>年份</label>
+          <input type="number" id="emailYear" value="2026">
+        </div>
+        <div class="form-group">
+          <label>月份</label>
+          <select id="emailMonth">
+            <option value="1">1月</option><option value="2">2月</option>
+            <option value="3">3月</option><option value="4">4月</option>
+            <option value="5">5月</option><option value="6">6月</option>
+            <option value="7">7月</option><option value="8">8月</option>
+            <option value="9">9月</option><option value="10">10月</option>
+            <option value="11">11月</option><option value="12">12月</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" style="width:100%;margin-bottom:8px" onclick="previewEmail()">👁️ 預覽月報</button>
+        <button class="btn btn-success" style="width:100%" onclick="sendEmailReport()">📤 發送給老師</button>
+        <hr class="divider">
+        <div id="emailStatus" class="status-bar" style="display:none;margin:0"></div>
+      </div>
+      <div>
+        <div id="emailFrame" class="email-preview-placeholder">
+          <div style="text-align:center">
+            <div style="font-size:48px;margin-bottom:12px">📧</div>
+            <p>選擇老師後按「預覽月報」</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ SETTINGS ═══════════════════ -->
+  <div class="tab-pane" id="tab-settings">
+    <div class="controls-row">
+      <div class="ctrl-group" style="margin-left:auto">
+        <button class="btn btn-secondary" onclick="loadSettings()">🔄 重新載入</button>
+      </div>
+    </div>
+    <div id="settingsStatus" class="status-bar" style="display:none"></div>
+    <div class="settings-table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>班級名稱</th><th>類型</th><th>主教老師</th><th>助教</th>
+            <th>時數</th><th>上課週期</th><th>生效日</th><th>結束日</th>
+          </tr>
+        </thead>
+        <tbody id="settingsBody">
+          <tr><td colspan="8" style="text-align:center;padding:40px;color:var(--muted)">請先連線 GAS 並載入設定</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Overlay Loader -->
+<div class="overlay" id="overlay">
+  <div class="loader-box">
+    <div class="spinner"></div>
+    <div class="loader-msg" id="overlayMsg">處理中...</div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════
+//  CONFIG & STATE
+// ═══════════════════════════════════════════════════
+const DAYS_TW = ['日','一','二','三','四','五','六'];
+const MONTH_COLORS = {
+  1:'#E8F0FE',2:'#E6F4EA',3:'#FEF7E0',4:'#F3E8FD',
+  5:'#E2F7F9',6:'#FCE8E6',7:'#E8F0FE',8:'#F4E8E8',
+  9:'#EAF4E6',10:'#FEF7E0',11:'#F3E8FD',12:'#E2F7F9'
+};
+
+let GAS_URL = '';
+let isConnected = false;
+let scheduleData = []; // [{month, date, className, type, lead, assist, hours}]
+let settingsData = [];
+let teacherList = [];
+let allClassNames = [];
+let isAllSelected = false;
+
+// Init
+window.onload = () => {
+  const saved = localStorage.getItem('nc_gas_url');
+  if (saved) {
+    document.getElementById('gasUrlInput').value = saved;
+    connectGAS(true);
+  }
+  const m = new Date().getMonth() + 1;
+  const y = new Date().getFullYear();
+  ['selMonth','pickerMonth','hoursMonth','emailMonth'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = m;
+  });
+  ['selYear','pickerYear','hoursYear','emailYear'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = y;
+  });
+};
+
+// ═══════════════════════════════════════════════════
+//  TAB SWITCHING
+// ═══════════════════════════════════════════════════
+function switchTab(name) {
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  document.querySelectorAll('.nav-tab').forEach(t => {
+    if (t.textContent.toLowerCase().includes(name === 'calendar' ? '月曆'
+       : name === 'picker' ? '班級' : name === 'hours' ? '時數'
+       : name === 'email' ? '月報' : '設定')) t.classList.add('active');
+  });
+}
+
+// ═══════════════════════════════════════════════════
+//  GAS CONNECTION
+// ═══════════════════════════════════════════════════
+async function connectGAS(silent = false) {
+  const url = document.getElementById('gasUrlInput').value.trim();
+  if (!url) { showStatus('calStatus', 'error', '⚠️ 請先貼上 GAS 網址'); return; }
+  GAS_URL = url;
+  localStorage.setItem('nc_gas_url', url);
+  if (!silent) showOverlay('連線測試中...');
+  try {
+    const r = await gasGet({ action: 'ping' });
+    isConnected = !!(r && (r.ok || r.month !== undefined));
+  } catch(e) { isConnected = false; }
+  hideOverlay();
+  document.getElementById('connDot').className = 'conn-dot' + (isConnected ? ' connected' : '');
+  if (!silent) {
+    if (isConnected) {
+      showStatus('calStatus', 'success', '✅ GAS 連線成功');
+      await loadScheduleData();
+    } else {
+      showStatus('calStatus', 'error', '❌ 連線失敗：請確認 GAS 網址正確，且已部署為「任何人可存取」');
+    }
+  } else if (isConnected) {
+    loadScheduleData();
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  GAS API HELPERS
+// ═══════════════════════════════════════════════════
+async function gasGet(params) {
+  if (!GAS_URL) throw new Error('No GAS URL');
+  const qs = Object.entries(params).map(([k,v]) => `${k}=${encodeURIComponent(v)}`).join('&');
+  const cbName = 'cb_' + Date.now();
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    window[cbName] = d => { resolve(d); delete window[cbName]; s.remove(); };
+    s.src = `${GAS_URL}?${qs}&callback=${cbName}`;
+    s.onerror = () => { reject(new Error('JSONP failed')); delete window[cbName]; s.remove(); };
+    document.body.appendChild(s);
+    setTimeout(() => { if (window[cbName]) { reject(new Error('timeout')); delete window[cbName]; s.remove(); } }, 15000);
+  });
+}
+
+async function gasPost(payload) {
+  if (!GAS_URL) throw new Error('No GAS URL');
+  const r = await fetch(GAS_URL, { method: 'POST', redirect: 'follow', body: JSON.stringify(payload) });
+  return await r.json();
+}
+
+// ═══════════════════════════════════════════════════
+//  LOAD DATA
+// ═══════════════════════════════════════════════════
+async function loadScheduleData() {
+  if (!isConnected) { showStatus('calStatus','error','⚠️ 請先連線 GAS'); return; }
+  showOverlay('載入排課資料...');
+  try {
+    // Try to get schedule detail data
+    const r = await gasGet({ action: 'getScheduleDetail' });
+    if (r && r.data) {
+      scheduleData = r.data;
+    } else if (r && Array.isArray(r)) {
+      scheduleData = r;
+    }
+    // Extract teacher list
+    const tSet = new Set();
+    scheduleData.forEach(row => {
+      if (row.lead) tSet.add(cleanName(row.lead));
+      if (row.assist) tSet.add(cleanName(row.assist));
+    });
+    teacherList = [...tSet].sort();
+    updateTeacherSelects();
+    renderCalendar();
+    showStatus('calStatus','success',`✅ 已載入 ${scheduleData.length} 筆排課資料`);
+  } catch(e) {
+    // Fallback: render empty calendar
+    renderCalendar();
+    showStatus('calStatus','error','⚠️ 無法載入排課資料（GAS 需要有 getScheduleDetail action）');
+  }
+  hideOverlay();
+}
+
+async function loadClasses() {
+  if (!isConnected) { showStatus('pickerStatus','error','⚠️ 請先連線 GAS'); return; }
+  showOverlay('載入班級清單...');
+  try {
+    const r = await gasGet({ action: 'getClassListForPicker' });
+    if (r && r.classes) allClassNames = r.classes;
+    else if (r && Array.isArray(r)) allClassNames = r;
+    renderClassCheckList();
+  } catch(e) {
+    showStatus('pickerStatus','error','❌ 載入失敗：' + e.message);
+  }
+  hideOverlay();
+}
+
+async function loadHoursReport() {
+  if (!isConnected) { showStatus('hoursStatus','error','⚠️ 請先連線 GAS'); return; }
+  const month = parseInt(document.getElementById('hoursMonth').value);
+  showOverlay('計算時數...');
+  try {
+    const r = await gasGet({ action: 'getTeacherHours', month });
+    if (r && r.summary) renderHoursReport(r.summary, month);
+    else showStatus('hoursStatus','error','⚠️ 無法取得時數資料（GAS 需要有 getTeacherHours action）');
+  } catch(e) {
+    // Generate from local data
+    const localReport = calcHoursLocal(month);
+    renderHoursReport(localReport, month);
+  }
+  hideOverlay();
+}
+
+async function loadSettings() {
+  if (!isConnected) { showStatus('settingsStatus','error','⚠️ 請先連線 GAS'); return; }
+  showOverlay('載入排課設定...');
+  try {
+    const r = await gasGet({ action: 'getSettings' });
+    if (r && r.settings) settingsData = r.settings;
+    else if (r && Array.isArray(r)) settingsData = r;
+    renderSettings();
+  } catch(e) {
+    showStatus('settingsStatus','error','❌ 載入失敗：' + e.message);
+  }
+  hideOverlay();
+}
+
+// ═══════════════════════════════════════════════════
+//  CALENDAR RENDER
+// ═══════════════════════════════════════════════════
+function renderCalendar() {
+  const year = parseInt(document.getElementById('selYear').value);
+  const month = parseInt(document.getElementById('selMonth').value);
+  const teacher = document.getElementById('filterTeacher').value;
+  const wrap = document.getElementById('calWrap');
+
+  const firstDay = new Date(year, month - 1, 1).getDay();
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
+
+  // Filter data for this month
+  const monthData = scheduleData.filter(row => {
+    const rm = parseInt(row.month);
+    if (rm !== month) return false;
+    if (teacher !== 'all') {
+      return cleanName(row.lead) === teacher || cleanName(row.assist) === teacher;
+    }
+    return true;
+  });
+
+  // Build map: dateStr -> [rows]
+  const dateMap = {};
+  monthData.forEach(row => {
+    const ds = row.date ? row.date.substring(0,10) : '';
+    if (!dateMap[ds]) dateMap[ds] = [];
+    dateMap[ds].push(row);
+  });
+
+  let html = `
+    <div class="cal-header">
+      <div class="cal-title">${year} 年 ${month} 月</div>
+      <div class="badge badge-blue">${Object.values(dateMap).reduce((a,b)=>a+b.length,0)} 堂課</div>
+    </div>
+    <div class="cal-grid">
+  `;
+
+  DAYS_TW.forEach(d => { html += `<div class="cal-day-header">${d}</div>`; });
+
+  // Empty cells before month start
+  for (let i = 0; i < firstDay; i++) {
+    html += `<div class="cal-cell empty"></div>`;
+  }
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${year}-${pad(month)}-${pad(d)}`;
+    const dayOfWeek = new Date(year, month-1, d).getDay();
+    const isToday = dateStr === todayStr;
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+    const rows = dateMap[dateStr] || [];
+
+    let cls = 'cal-cell';
+    if (isToday) cls += ' today';
+    if (isWeekend) cls += ' holiday';
+
+    html += `<div class="${cls}"><span class="cal-date">${d}</span>`;
+
+    rows.forEach(row => {
+      const lead = cleanName(row.lead);
+      const assist = cleanName(row.assist);
+      const isLead = teacher === 'all' || lead === teacher;
+      const chipCls = (teacher === 'all' || isLead) ? 'lead' : 'assist';
+      const examNote = getExamNote(row.className, row.progress || '');
+      const examBadge = examNote ? `<span class="exam-badge${examNote.includes('大考') ? ' big' : ''}">${examNote}</span>` : '';
+      const roleShort = teacher === 'all' ? `${lead}/${assist}` : (isLead ? `${lead} Lead` : `${assist} Assist`);
+      html += `<span class="class-chip ${chipCls}">● ${row.className}${examBadge}<br><span style="opacity:.7;font-size:10px">${roleShort}</span></span>`;
+    });
+
+    html += `</div>`;
+  }
+
+  // Fill remaining cells
+  const totalCells = firstDay + daysInMonth;
+  const rem = totalCells % 7;
+  if (rem !== 0) {
+    for (let i = 0; i < 7 - rem; i++) html += `<div class="cal-cell empty"></div>`;
+  }
+
+  html += `</div>`;
+  wrap.innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════
+//  CLASS PICKER
+// ═══════════════════════════════════════════════════
+function renderClassCheckList() {
+  const wrap = document.getElementById('classCheckList');
+  if (!allClassNames.length) {
+    wrap.innerHTML = '<div class="empty-state"><div class="icon">📋</div><p>沒有找到班級</p></div>';
+    return;
+  }
+  wrap.innerHTML = allClassNames.map((name, i) => `
+    <div class="class-check-item">
+      <input type="checkbox" name="cls" value="${name}" id="cc${i}" onchange="updateSelectedBadges()">
+      <label for="cc${i}">${name}</label>
+    </div>
+  `).join('');
+  updateSelectedBadges();
+}
+
+function toggleAllClasses() {
+  isAllSelected = !isAllSelected;
+  document.querySelectorAll('input[name="cls"]').forEach(c => c.checked = isAllSelected);
+  updateSelectedBadges();
+}
+
+function updateSelectedBadges() {
+  const selected = getSelectedClasses();
+  const wrap = document.getElementById('selectedBadges');
+  if (!selected.length) {
+    wrap.innerHTML = '<span style="color:var(--muted);font-size:13px">尚未選擇</span>';
+    return;
+  }
+  wrap.innerHTML = selected.map(n => `<span class="selected-badge">${n}</span>`).join('');
+}
+
+function getSelectedClasses() {
+  return Array.from(document.querySelectorAll('input[name="cls"]:checked')).map(c => c.value);
+}
+
+async function runUpdateSelected() {
+  const selected = getSelectedClasses();
+  if (!selected.length) { alert('⚠️ 請至少勾選一個班級'); return; }
+  if (!isConnected) { showStatus('pickerStatus','error','⚠️ 請先連線 GAS'); return; }
+
+  const month = parseInt(document.getElementById('pickerMonth').value);
+  const year = parseInt(document.getElementById('pickerYear').value);
+
+  addLog('info', `▶ 開始更新 ${year}/${month} 月，共 ${selected.length} 個班級...`);
+  showOverlay(`更新中... (0/${selected.length})`);
+
+  let ok = 0, fail = 0;
+  for (let i = 0; i < selected.length; i++) {
+    const cls = selected[i];
+    document.getElementById('overlayMsg').textContent = `更新中... (${i+1}/${selected.length}) ${cls}`;
+    try {
+      const r = await gasPost({ action: 'processSelectedClasses', classes: [cls], month, year });
+      if (r && r.ok !== false) { ok++; addLog('ok', `✅ ${cls}`); }
+      else { fail++; addLog('err', `❌ ${cls}: ${r?.error || '未知錯誤'}`); }
+    } catch(e) {
+      fail++; addLog('err', `❌ ${cls}: ${e.message}`);
+    }
+  }
+
+  hideOverlay();
+  const msg = `完成：${ok} 成功，${fail} 失敗`;
+  showStatus('pickerStatus', fail > 0 ? 'error' : 'success', (fail > 0 ? '⚠️ ' : '✅ ') + msg);
+  addLog('info', `▶ ${msg}`);
+  if (ok > 0) await loadScheduleData();
+}
+
+async function runCalendarUpdate() {
+  if (!isConnected) { showStatus('calStatus','error','⚠️ 請先連線 GAS'); return; }
+  const month = parseInt(document.getElementById('selMonth').value);
+  const year = parseInt(document.getElementById('selYear').value);
+  showOverlay('更新月曆...');
+  try {
+    const r = await gasPost({ action: 'runCalendarUpdate', month, year });
+    if (r?.ok) showStatus('calStatus','success','✅ 月曆已更新');
+    else showStatus('calStatus','error','⚠️ ' + (r?.error || '更新失敗'));
+    await loadScheduleData();
+  } catch(e) {
+    showStatus('calStatus','error','❌ ' + e.message);
+  }
+  hideOverlay();
+}
+
+// ═══════════════════════════════════════════════════
+//  HOURS REPORT
+// ═══════════════════════════════════════════════════
+function calcHoursLocal(month) {
+  const summary = {};
+  scheduleData.filter(r => parseInt(r.month) === month).forEach(row => {
+    const lead = cleanName(row.lead);
+    const assist = cleanName(row.assist);
+    const h = parseFloat(row.hours) || 0;
+    [lead, assist].forEach((t, idx) => {
+      if (!t) return;
+      if (!summary[t]) summary[t] = { total: 0, classes: {} };
+      if (!summary[t].classes[row.className]) summary[t].classes[row.className] = { lead: 0, assist: 0, sub: 0 };
+      const isSub = (row.type || '').includes('休代');
+      if (isSub) summary[t].classes[row.className].sub += h;
+      else if (idx === 0) summary[t].classes[row.className].lead += h;
+      else summary[t].classes[row.className].assist += h;
+      summary[t].total += h;
+    });
+  });
+  return summary;
+}
+
+function renderHoursReport(summary, month) {
+  const grid = document.getElementById('statsGrid');
+  const tbody = document.getElementById('hoursTableBody');
+  const table = document.getElementById('hoursTable');
+
+  if (!summary || !Object.keys(summary).length) {
+    grid.innerHTML = '<div class="empty-state"><div class="icon">📊</div><p>本月無排課資料</p></div>';
+    table.style.display = 'none';
+    showStatus('hoursStatus','error','⚠️ 本月無資料');
+    return;
+  }
+
+  const sorted = Object.keys(summary).sort((a,b) => summary[b].total - summary[a].total);
+
+  // Cards
+  grid.innerHTML = sorted.map(t => {
+    const s = summary[t];
+    const lead = Object.values(s.classes).reduce((a,c) => a + (c.lead||0), 0);
+    const assist = Object.values(s.classes).reduce((a,c) => a + (c.assist||0), 0);
+    const sub = Object.values(s.classes).reduce((a,c) => a + (c.sub||0), 0);
+    return `
+      <div class="stat-card">
+        <div class="stat-teacher">👤 ${t}</div>
+        <div style="margin:8px 0">
+          <span class="stat-total">${s.total}</span>
+          <span class="stat-total-unit">小時</span>
+        </div>
+        <div class="stat-breakdown">
+          <div class="stat-item lead"><div class="val">${lead}</div><div class="lbl">主教</div></div>
+          <div class="stat-item assist"><div class="val">${assist}</div><div class="lbl">助教</div></div>
+          <div class="stat-item sub"><div class="val">${sub}</div><div class="lbl">代課</div></div>
+        </div>
+      </div>`;
+  }).join('');
+
+  // Table
+  let rows = '';
+  sorted.forEach(t => {
+    const s = summary[t];
+    let first = true;
+    let teacherTotal = 0;
+    Object.entries(s.classes).forEach(([cls, c]) => {
+      const sub = c.sub || 0;
+      const total = (c.lead||0) + (c.assist||0) + sub;
+      teacherTotal += total;
+      rows += `<tr${first ? ' class="teacher-row"' : ''}>
+        <td>${first ? t : ''}</td>
+        <td>${cls}</td>
+        <td>${c.lead||0}</td>
+        <td>${c.assist||0}</td>
+        <td style="color:var(--orange)">${sub||0}</td>
+        <td><b>${total}</b></td>
+      </tr>`;
+      first = false;
+    });
+    rows += `<tr style="background:rgba(79,142,247,0.06);font-weight:700">
+      <td colspan="5" style="text-align:right;color:var(--muted)">合計</td>
+      <td style="color:var(--accent);font-size:16px">${s.total}</td>
+    </tr>`;
+  });
+  tbody.innerHTML = rows;
+  table.style.display = 'block';
+  showStatus('hoursStatus','success',`✅ 統計完成：${sorted.length} 位老師`);
+}
+
+// ═══════════════════════════════════════════════════
+//  EMAIL PREVIEW
+// ═══════════════════════════════════════════════════
+async function previewEmail() {
+  const teacher = document.getElementById('emailTeacher').value;
+  const month = parseInt(document.getElementById('emailMonth').value);
+  const year = parseInt(document.getElementById('emailYear').value);
+  if (!teacher) { showStatus('emailStatus','error','⚠️ 請選擇老師'); return; }
+  if (!isConnected) { showStatus('emailStatus','error','⚠️ 請先連線 GAS'); return; }
+
+  showOverlay('產生月報預覽...');
+  const frame = document.getElementById('emailFrame');
+  try {
+    const r = await gasGet({ action: 'getMonthlyEmailPreview', teacher, month, year });
+    if (r && r.html) {
+      frame.innerHTML = `<div style="padding:20px">${r.html}</div>`;
+      frame.className = 'email-preview-frame';
+      showStatus('emailStatus','success','✅ 預覽產生成功');
+    } else {
+      // Generate local preview
+      const localHtml = buildLocalEmailPreview(teacher, month, year);
+      frame.innerHTML = `<div style="padding:20px">${localHtml}</div>`;
+      frame.className = 'email-preview-frame';
+      showStatus('emailStatus','success','✅ 本地預覽（GAS 需要 getMonthlyEmailPreview action）');
+    }
+  } catch(e) {
+    const localHtml = buildLocalEmailPreview(teacher, month, year);
+    frame.innerHTML = `<div style="padding:20px">${localHtml}</div>`;
+    frame.className = 'email-preview-frame';
+  }
+  hideOverlay();
+}
+
+function buildLocalEmailPreview(teacher, month, year) {
+  const rows = scheduleData.filter(r => {
+    const rm = parseInt(r.month);
+    if (rm !== month) return false;
+    return cleanName(r.lead) === teacher || cleanName(r.assist) === teacher;
+  });
+
+  if (!rows.length) return `<p style="color:#666;text-align:center;padding:40px">本月無排課資料</p>`;
+
+  const rowsSorted = [...rows].sort((a,b) => a.date > b.date ? 1 : -1);
+  const dayNames = ['日','一','二','三','四','五','六'];
+  const dayColors = ['#F5F5F5','#E8F0FE','#E6F4EA','#FEF7E0','#F3E8FD','#E2F7F9','#FCE8E6'];
+
+  let tableRows = rowsSorted.map(r => {
+    const d = new Date(r.date);
+    const dayIdx = d.getDay();
+    const isLead = cleanName(r.lead) === teacher;
+    return `<tr style="background:${dayColors[dayIdx]}">
+      <td style="padding:8px;border:1px solid #ddd;text-align:center">${r.date?.substring(5)} (${dayNames[dayIdx]})</td>
+      <td style="padding:8px;border:1px solid #ddd"><b>${r.className}</b> (${isLead ? 'Lead 主教' : 'Assist 助教'})</td>
+      <td style="padding:8px;border:1px solid #ddd">${r.progress || '-'}</td>
+    </tr>`;
+  }).join('');
+
+  return `
+    <div style="font-family:sans-serif;max-width:700px;border:1px solid #ddd;border-radius:8px;overflow:hidden">
+      <div style="background:#274e13;color:white;padding:20px">
+        <h2 style="margin:0">🎓 ${month}月份 授課課程進度提醒</h2>
+        <h3 style="margin:5px 0 0 0;font-weight:normal;opacity:.9">Monthly Progress - ${teacher}</h3>
+      </div>
+      <div style="padding:20px">
+        <p>Dear <b>${teacher}</b>,</p>
+        <table style="width:100%;border-collapse:collapse">
+          <tr style="background:#f3f3f3">
+            <th style="border:1px solid #ddd;padding:8px;width:25%">日期</th>
+            <th style="border:1px solid #ddd;padding:8px;width:35%">班級</th>
+            <th style="border:1px solid #ddd;padding:8px;width:40%">進度</th>
+          </tr>
+          ${tableRows}
+        </table>
+      </div>
+    </div>`;
+}
+
+async function sendEmailReport() {
+  const teacher = document.getElementById('emailTeacher').value;
+  const month = parseInt(document.getElementById('emailMonth').value);
+  const year = parseInt(document.getElementById('emailYear').value);
+  if (!teacher) { showStatus('emailStatus','error','⚠️ 請選擇老師'); return; }
+  if (!isConnected) { showStatus('emailStatus','error','⚠️ 請先連線 GAS'); return; }
+  if (!confirm(`確定要寄送 ${teacher} 老師的 ${month} 月月報嗎？`)) return;
+
+  showOverlay('發送中...');
+  try {
+    const r = await gasPost({ action: 'sendFullMonthProgress', teacher, month, year });
+    hideOverlay();
+    if (r?.ok) showStatus('emailStatus','success','✅ 月報已發送');
+    else showStatus('emailStatus','error','❌ ' + (r?.error || '發送失敗'));
+  } catch(e) {
+    hideOverlay();
+    showStatus('emailStatus','error','❌ ' + e.message);
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  SETTINGS
+// ═══════════════════════════════════════════════════
+function renderSettings() {
+  const tbody = document.getElementById('settingsBody');
+  if (!settingsData.length) {
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--muted)">無設定資料</td></tr>';
+    return;
+  }
+  tbody.innerHTML = settingsData.map(row => {
+    const cycleDots = [1,2,3,4,5,6].map(d => {
+      const days = (row.cycle || '').toString().split(/[,，]/).map(x => parseInt(x.trim()));
+      const on = days.includes(d);
+      return `<span class="cycle-dot ${on ? 'on' : 'off'}">${DAYS_TW[d]}</span>`;
+    }).join('');
+    return `<tr>
+      <td><b>${row.name || ''}</b></td>
+      <td><span class="badge badge-blue">${row.type || ''}</span></td>
+      <td>${row.lead || ''}</td>
+      <td>${row.assist || ''}</td>
+      <td>${row.hours || ''}</td>
+      <td>${cycleDots}</td>
+      <td style="font-size:12px;color:var(--muted)">${row.effectiveDate || ''}</td>
+      <td style="font-size:12px;color:var(--muted)">${row.endDate || ''}</td>
+    </tr>`;
+  }).join('');
+  showStatus('settingsStatus','success',`✅ 載入 ${settingsData.length} 筆設定`);
+}
+
+// ═══════════════════════════════════════════════════
+//  EXAM NOTE (mirror of GAS logic)
+// ═══════════════════════════════════════════════════
+function getExamNote(className, progressInfo) {
+  if (!progressInfo || progressInfo === '-') return null;
+  const nameUC = className.toUpperCase();
+  const cleanProgress = progressInfo.replace(/<[^>]*>/g, '').toUpperCase();
+  const excludes = ['HK','SCIENCE','IA','LA-'];
+  if (excludes.some(k => nameUC.includes(k))) return null;
+  const nums = cleanProgress.match(/\d+/g);
+  if (!nums || nums.length < 2) return null;
+  const unitNum = parseInt(nums[0]);
+  const currentLesson = parseInt(nums[1]);
+  const isR = cleanProgress.includes('REVIEW') || /\bR\d+/.test(cleanProgress);
+
+  let levelTag = '';
+  if (nameUC.includes('THC')) {
+    const m = nameUC.match(/THC\s*(\d+)/);
+    const num = m ? parseInt(m[1]) : 0;
+    levelTag = (num >= 7 || nameUC.includes('高')) ? 'THC高' : 'THC低';
+  } else if (nameUC.includes('THP') || nameUC.includes('ESL')) {
+    levelTag = 'THP';
+  } else if (nameUC.includes('KW')) {
+    levelTag = 'KW';
+  }
+
+  if (levelTag === 'KW') {
+    if (!isR && [2,4,7,9].includes(unitNum) && currentLesson === 4) return '📝小考';
+    return null;
+  } else if (levelTag === 'THC低') {
+    if (isR && currentLesson === 2) return '🏆大考';
+    if (!isR && currentLesson === 5) return '📝小考';
+  } else if (levelTag === 'THC高' || levelTag === 'THP') {
+    if (isR && currentLesson === 2) return '🏆大考';
+    if (!isR && currentLesson === 6) return '📝小考';
+  }
+  return null;
+}
+
+// ═══════════════════════════════════════════════════
+//  UTILITIES
+// ═══════════════════════════════════════════════════
+function cleanName(name) {
+  if (!name) return '';
+  return name.toString().replace(/[0-9]/g, '').trim();
+}
+
+function pad(n) { return String(n).padStart(2, '0'); }
+
+function updateTeacherSelects() {
+  const opts = ['<option value="all">全部老師</option>',
+    ...teacherList.map(t => `<option value="${t}">${t}</option>`)].join('');
+  document.getElementById('filterTeacher').innerHTML = opts;
+
+  const emailOpts = ['<option value="">— 選擇老師 —</option>',
+    ...teacherList.map(t => `<option value="${t}">${t}</option>`)].join('');
+  document.getElementById('emailTeacher').innerHTML = emailOpts;
+}
+
+function showStatus(id, type, msg) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.className = 'status-bar ' + type;
+  el.textContent = msg;
+  el.style.display = 'flex';
+  if (type === 'success') setTimeout(() => { el.style.display = 'none'; }, 4000);
+}
+
+function showOverlay(msg) {
+  document.getElementById('overlayMsg').textContent = msg;
+  document.getElementById('overlay').classList.add('show');
+}
+function hideOverlay() { document.getElementById('overlay').classList.remove('show'); }
+
+function addLog(type, msg) {
+  const log = document.getElementById('actionLog');
+  const cls = type === 'ok' ? 'log-ok' : type === 'err' ? 'log-err' : 'log-info';
+  const time = new Date().toLocaleTimeString('zh-TW');
+  log.innerHTML += `<div class="${cls}">[${time}] ${msg}</div>`;
+  log.scrollTop = log.scrollHeight;
+}
+</script>
+</body>
+</html>
