@@ -1586,7 +1586,7 @@ function buildLocalEmailPreview(teacher, month, year) {
 
   const rowsSorted = [...rows].sort((a,b) => a.date > b.date ? 1 : -1);
   const dayNames = ['日','一','二','三','四','五','六'];
-  const dayColors = ['#F5F5F5','#E8F0FE','#E6F4EA','#FEF7E0','#F3E8FD','#E2F7F9','#FCE8E6'];
+  const dayColors = ['#1a1d27','#1a2235','#1a2b22','#2a2415','#221a35','#162a2b','#2b1a1a'];
 
   let tableRows = rowsSorted.map(r => {
     const d = new Date(r.date);
@@ -1605,10 +1605,10 @@ function buildLocalEmailPreview(teacher, month, year) {
         <h2 style="margin:0">🎓 ${month}月份 授課課程進度提醒</h2>
         <h3 style="margin:5px 0 0 0;font-weight:normal;opacity:.9">Monthly Progress - ${teacher}</h3>
       </div>
-      <div style="padding:20px">
+      <div style="padding:20px;background:#1a1d27;color:#e8eaf0">
         <p>Dear <b>${teacher}</b>,</p>
         <table style="width:100%;border-collapse:collapse">
-          <tr style="background:#f3f3f3">
+          <tr style="background:#22263a">
             <th style="border:1px solid #ddd;padding:8px;width:25%">日期</th>
             <th style="border:1px solid #ddd;padding:8px;width:35%">班級</th>
             <th style="border:1px solid #ddd;padding:8px;width:40%">進度</th>
