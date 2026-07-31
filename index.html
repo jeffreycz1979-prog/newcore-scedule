@@ -1109,9 +1109,10 @@ async function loadClasses() {
 async function loadHoursReport() {
   if (!isConnected) { showStatus('hoursStatus','error','⚠️ 請先連線 GAS'); return; }
   const month = parseInt(document.getElementById('hoursMonth').value);
+  const year = parseInt(document.getElementById('hoursYear').value);
   showOverlay('計算時數...');
   try {
-    const r = await gasGet({ action: 'getTeacherHours', month });
+    const r = await gasGet({ action: 'getTeacherHours', month, year });
     if (r && r.summary) renderHoursReport(r.summary, month);
     else showStatus('hoursStatus','error','⚠️ 無法取得時數資料（GAS 需要有 getTeacherHours action）');
   } catch(e) {
