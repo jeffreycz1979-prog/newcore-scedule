@@ -622,6 +622,7 @@
   <div class="nav-tab" onclick="switchTab('hours')">⏱️ 時數統計</div>
   <div class="nav-tab" onclick="switchTab('email')">📧 月報預覽</div>
   <div class="nav-tab" onclick="switchTab('settings')">⚙️ 排課設定</div>
+  <div class="nav-tab" onclick="switchTab('rooms')">🏫 教室總覽</div>
 </div>
 
 <!-- ═══════════════════ CALENDAR ═══════════════════ -->
@@ -779,7 +780,7 @@
   </div>
 
   <!-- ═══════════════════ SETTINGS ═══════════════════ -->
-  <div class="tab-pane" id="tab-settings">
+<div class="tab-pane" id="tab-settings">
     <div class="controls-row">
       <div class="ctrl-group" style="margin-left:auto">
         <button class="btn btn-success" onclick="addNewSettingRow()">＋ 新增設定</button>
@@ -801,8 +802,29 @@
       </table>
     </div>
   </div>
-</div>
 
+  <div class="tab-pane" id="tab-rooms">
+    <div class="controls-row">
+      <div class="ctrl-group" style="margin-left:auto">
+        <button class="btn btn-secondary" onclick="loadRoomOverview()">🔄 重新載入</button>
+      </div>
+    </div>
+    <div id="roomsStatus" class="status-bar" style="display:none"></div>
+    <h3 style="margin:16px 0 8px">📋 班級教室指派（即時寫回規律排課設定）</h3>
+    <div class="settings-table-wrap" style="margin-bottom:24px">
+      <table>
+        <thead>
+          <tr><th>班級名稱</th><th>星期</th><th>節次</th><th>教室</th></tr>
+        </thead>
+        <tbody id="roomClassListBody">
+          <tr><td colspan="4" style="text-align:center;padding:40px;color:var(--muted)">請先載入</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 style="margin:16px 0 8px">🧱 教室分配總覽（依星期分組）</h3>
+    <div id="roomMatrixWrap"></div>
+  </div>
+</div>
 <!-- Overlay Loader -->
 <div class="overlay" id="overlay">
   <div class="loader-box">
@@ -980,7 +1002,7 @@ function switchTab(name) {
   document.querySelectorAll('.nav-tab').forEach(t => {
     if (t.textContent.toLowerCase().includes(name === 'calendar' ? '月曆'
        : name === 'picker' ? '班級' : name === 'hours' ? '時數'
-       : name === 'email' ? '月報' : '設定')) t.classList.add('active');
+       : name === 'email' ? '月報' : name === 'rooms' ? '教室' : '設定')) t.classList.add('active');
   });
 }
 
@@ -1836,6 +1858,103 @@ function addLog(type, msg) {
   const time = new Date().toLocaleTimeString('zh-TW');
   log.innerHTML += `<div class="${cls}">[${time}] ${msg}</div>`;
   log.scrollTop = log.scrollHeight;
+}
+ let roomOverviewData = null;
+
+async function loadRoomOverview() {
+  if (!isConnected) { showStatus('roomsStatus','error','⚠️ 請先連線 GAS'); return; }
+  showOverlay('載入教室資料...');
+  try {
+    const r = await gasGet({ action: 'getRoomOverview' });
+    if (r && r.ok) {
+      roomOverviewData = r;
+      renderRoomClassList(r.classRoomList, r.rooms);
+      renderRoomMatrix(r);
+      showStatus('roomsStatus','success',`✅ 載入完成，共 ${r.rooms.length} 間教室`);
+    } else {
+      showStatus('roomsStatus','error','❌ ' + (r?.error || '載入失敗'));
+    }
+  } catch(e) {
+    showStatus('roomsStatus','error','❌ ' + e.message);
+  }
+  hideOverlay();
+} 
+  function buildRoomSelectOptions(rooms, selected) {
+  const opts = [`<option value="" ${selected === '' ? 'selected' : ''}>（未填）</option>`];
+  rooms.forEach(rc => opts.push(`<option value="${rc}" ${selected === rc ? 'selected' : ''}>${rc}</option>`));
+  opts.push(`<option value="他校" ${selected === '他校' ? 'selected' : ''}>他校</option>`);
+  return opts.join('');
+}
+
+function renderRoomClassList(list, rooms) {
+  const tbody = document.getElementById('roomClassListBody');
+  if (!list || !list.length) {
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:40px;color:var(--muted)">規律排課設定無資料</td></tr>';
+    return;
+  }
+  tbody.innerHTML = list.map(row => {
+    return `<tr>
+      <td><b>${row.className}</b></td>
+      <td>${row.weekdaysStr}</td>
+      <td>${row.periodCode || '-'}</td>
+      <td><select onchange="changeClassRoom(${row.rowIndex}, this.value)" style="width:110px">${buildRoomSelectOptions(rooms, row.roomCode)}</select></td>
+    </tr>`;
+  }).join('');
+}
+  async function changeClassRoom(rowIndex, roomCode, force) {
+  showOverlay('儲存中...');
+  try {
+    const r = await gasPost({ action: 'updateClassRoom', rowIndex, roomCode, force: !!force });
+    hideOverlay();
+    if (r?.ok) {
+      showStatus('roomsStatus','success', `✅ ${r.className || ''} 教室已更新為「${r.roomCode || '未填'}」`);
+      await loadRoomOverview();
+    } else if (r?.conflict) {
+      const dayNames = ['日','一','二','三','四','五','六'];
+      const detail = (r.conflicts || []).map(c => `${c.className}（${dayNames[c.weekday]}/${c.periodCode}/${c.source}）`).join('\n');
+      if (confirm(`⚠️ 這間教室在同時段已有其他班級：\n\n${detail}\n\n仍要強制指派嗎？`)) {
+        await changeClassRoom(rowIndex, roomCode, true);
+      } else {
+        await loadRoomOverview();
+      }
+    } else {
+      showStatus('roomsStatus','error','❌ ' + (r?.error || '更新失敗'));
+      await loadRoomOverview();
+    }
+  } catch(e) {
+    hideOverlay();
+    showStatus('roomsStatus','error','❌ ' + e.message);
+  }
+}
+  function renderRoomMatrix(data) {
+  const wrap = document.getElementById('roomMatrixWrap');
+  const rooms = data.rooms, periods = data.periods, weekdays = data.weekdays, grid = data.grid, pending = data.pending;
+  if (!rooms.length || !periods.length) {
+    wrap.innerHTML = '<div class="empty-state"><div class="icon">🧱</div><p>請先設定「教室設定」「節次設定」分頁</p></div>';
+    return;
+  }
+  let html = '';
+  weekdays.forEach(w => {
+    html += `<h4 style="margin:14px 0 6px;color:var(--accent)">${w.label}</h4>
+      <div class="settings-table-wrap" style="margin-bottom:14px;overflow-x:auto">
+      <table><thead><tr><th>節次</th>${rooms.map(rc => `<th>${rc}</th>`).join('')}</tr></thead><tbody>`;
+    periods.forEach(p => {
+      html += `<tr><td>${p.code}</td>`;
+      rooms.forEach(rc => {
+        const key = `${rc}|${w.value}|${p.code}`;
+        const names = grid[key] || [];
+        html += `<td>${names.join('、') || '<span style="color:var(--muted)">-</span>'}</td>`;
+      });
+      html += `</tr>`;
+    });
+    html += `</tbody></table></div>`;
+    const pendKeys = Object.keys(pending).filter(k => k.split('|')[0] === String(w.value));
+    if (pendKeys.length) {
+      const items = pendKeys.flatMap(k => pending[k].map(n => `${n}(${k.split('|')[1]})`));
+      html += `<div class="status-bar error" style="margin-bottom:14px">⚠️ 未排教室：${items.join('、')}</div>`;
+    }
+  });
+  wrap.innerHTML = html;
 }
 </script>
 </body>
