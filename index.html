@@ -1866,20 +1866,39 @@ async function loadRoomOverview() {
   if (!isConnected) { showStatus('roomsStatus','error','⚠️ 請先連線 GAS'); return; }
   showOverlay('載入教室資料...');
   try {
+    console.log('[roomDebug] 開始呼叫 getRoomOverview');
     const r = await gasGet({ action: 'getRoomOverview' });
+    console.log('[roomDebug] 收到回應', r);
+
     if (r && r.ok) {
       roomOverviewData = r;
-      renderRoomClassList(r.classRoomList, r.rooms);
-      (r);
+
+      try {
+        console.log('[roomDebug] 開始 renderRoomClassList');
+        renderRoomClassList(r.classRoomList, r.rooms);
+        console.log('[roomDebug] renderRoomClassList 完成');
+      } catch (e1) {
+        console.error('[roomDebug] renderRoomClassList 出錯：', e1);
+      }
+
+      try {
+        console.log('[roomDebug] 開始 renderRoomMatrix，rooms=', r.rooms.length, 'periods=', r.periods.length);
+        renderRoomMatrix(r);
+        console.log('[roomDebug] renderRoomMatrix 完成，innerHTML長度=', document.getElementById('roomMatrixWrap').innerHTML.length);
+      } catch (e2) {
+        console.error('[roomDebug] renderRoomMatrix 出錯：', e2);
+      }
+
       showStatus('roomsStatus','success',`✅ 載入完成，共 ${r.rooms.length} 間教室`);
     } else {
       showStatus('roomsStatus','error','❌ ' + (r?.error || '載入失敗'));
     }
   } catch(e) {
+    console.error('[roomDebug] gasGet 本身出錯：', e);
     showStatus('roomsStatus','error','❌ ' + e.message);
   }
   hideOverlay();
-} 
+}
   function buildRoomSelectOptions(rooms, selected) {
   const opts = [`<option value="" ${selected === '' ? 'selected' : ''}>（未填）</option>`];
   rooms.forEach(rc => opts.push(`<option value="${rc}" ${selected === rc ? 'selected' : ''}>${rc}</option>`));
