@@ -804,25 +804,26 @@
   </div>
 
   <div class="tab-pane" id="tab-rooms">
-    <div class="controls-row">
-      <div class="ctrl-group" style="margin-left:auto">
-        <button class="btn btn-secondary" onclick="loadRoomOverview()">🔄 重新載入</button>
-      </div>
+  <div class="controls-row">
+    <div class="ctrl-group" style="margin-left:auto">
+      <button class="btn btn-secondary" onclick="loadRoomOverview()">🔄 重新載入</button>
     </div>
-    <div id="roomsStatus" class="status-bar" style="display:none"></div>
-    <h3 style="margin:16px 0 8px">📋 班級教室指派（即時寫回規律排課設定）</h3>
-    <div class="settings-table-wrap" style="margin-bottom:24px">
-      <table>
-        <thead>
-          <tr><th>班級名稱</th><th>星期</th><th>節次</th><th>教室</th></tr>
-        </thead>
-        <tbody id="roomClassListBody">
-          <tr><td colspan="4" style="text-align:center;padding:40px;color:var(--muted)">請先載入</td></tr>
-        </tbody>
-      </table>
-    </div>
-    <h3 style="margin:16px 0 8px">🧱 教室分配總覽（依星期分組）</h3>
-    <div id="roomMatrixWrap"></div>
+  </div>
+  <div id="roomsStatus" class="status-bar" style="display:none"></div>
+
+  <h3 style="margin:16px 0 8px">🧱 教室分配總覽（依星期分組）</h3>
+  <div id="roomMatrixWrap" style="margin-bottom:24px"></div>
+
+  <h3 style="margin:16px 0 8px">📋 班級教室指派（即時寫回規律排課設定）</h3>
+  <div class="settings-table-wrap">
+    <table>
+      <thead>
+        <tr><th>班級名稱</th><th>星期</th><th>節次</th><th>教室</th></tr>
+      </thead>
+      <tbody id="roomClassListBody">
+        <tr><td colspan="4" style="text-align:center;padding:40px;color:var(--muted)">請先載入</td></tr>
+      </tbody>
+    </table>
   </div>
 </div>
 <!-- Overlay Loader -->
