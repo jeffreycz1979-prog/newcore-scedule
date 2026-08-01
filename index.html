@@ -818,7 +818,7 @@
   <div class="settings-table-wrap">
     <table>
       <thead>
-        <tr><th>班級名稱</th><th>星期</th><th>節次</th><th>教室</th></tr>
+        <tr><th>班級名稱</th><th>星期</th><th>節次</th><th>教室</th><th>操作</th></tr>
       </thead>
       <tbody id="roomClassListBody">
         <tr><td colspan="4" style="text-align:center;padding:40px;color:var(--muted)">請先載入</td></tr>
@@ -1875,7 +1875,7 @@ async function loadRoomOverview() {
 
       try {
         console.log('[roomDebug] 開始 renderRoomClassList');
-        renderRoomClassList(r.classRoomList, r.rooms);
+        renderRoomClassList(r.classRoomList, r.rooms, r.periods);
         console.log('[roomDebug] renderRoomClassList 完成');
       } catch (e1) {
         console.error('[roomDebug] renderRoomClassList 出錯：', e1);
@@ -1899,66 +1899,139 @@ async function loadRoomOverview() {
   }
   hideOverlay();
 }
-  function buildRoomSelectOptions(rooms, selected) {
+  
+function buildRoomSelectOptions(rooms, selected) {
   const opts = [`<option value="" ${selected === '' ? 'selected' : ''}>（未填）</option>`];
   rooms.forEach(rc => opts.push(`<option value="${rc}" ${selected === rc ? 'selected' : ''}>${rc}</option>`));
   opts.push(`<option value="他校" ${selected === '他校' ? 'selected' : ''}>他校</option>`);
   return opts.join('');
 }
 
-function renderRoomClassList(list, rooms) {
+function buildPeriodSelectOptions(periods, selected) {
+  const opts = [`<option value="" ${selected === '' ? 'selected' : ''}>（未填）</option>`];
+  periods.forEach(p => opts.push(`<option value="${p.code}" ${selected === p.code ? 'selected' : ''}>${p.code}</option>`));
+  return opts.join('');
+}
+
+function renderRoomClassList(list, rooms, periods) {
   const tbody = document.getElementById('roomClassListBody');
   if (!list || !list.length) {
-    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:40px;color:var(--muted)">規律排課設定無資料</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:40px;color:var(--muted)">規律排課設定無資料</td></tr>';
     return;
   }
-  tbody.innerHTML = list.map(row => {
-    return `<tr>
-      <td><b>${row.className}</b></td>
-      <td>${row.weekdaysStr}</td>
-      <td>${row.periodCode || '-'}</td>
-      <td><select onchange="changeClassRoom(${row.rowIndex}, this.value)" style="width:110px">${buildRoomSelectOptions(rooms, row.roomCode)}</select></td>
-    </tr>`;
-  }).join('');
+  tbody.innerHTML = list.map((row, idx) => buildRoomClassRow(row, idx)).join('');
 }
-  async function changeClassRoom(rowIndex, roomCode, force) {
+
+function buildRoomClassRow(row, idx) {
+  return `<tr id="rc-row-${idx}">
+    <td><b>${row.className}</b></td>
+    <td>${row.weekdaysStr}</td>
+    <td>${row.periodCode || '-'}</td>
+    <td>${row.roomCode || '<span style="color:var(--muted)">未填</span>'}</td>
+    <td style="white-space:nowrap">
+      <button class="btn btn-secondary btn-sm" onclick="openRoomClassEdit(${idx})" style="margin-right:4px">✏️</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteRoomClassRow(${idx})">🗑️</button>
+    </td>
+  </tr>`;
+}
+
+function buildRoomClassEditRow(row, idx) {
+  const rooms = roomOverviewData.rooms || [];
+  const periods = roomOverviewData.periods || [];
+  const dayLabels = ['日','一','二','三','四','五','六'];
+  const dayChecks = [1,2,3,4,5,6].map(d => {
+    const checked = row.weekdays.includes(d) ? 'checked' : '';
+    return `<label style="display:inline-flex;align-items:center;gap:2px;margin-right:8px;font-size:12px;cursor:pointer">
+      <input type="checkbox" id="rc-day-${idx}-${d}" value="${d}" ${checked} style="width:14px;height:14px">${dayLabels[d]}
+    </label>`;
+  }).join('');
+
+  return `<tr id="rc-row-${idx}" style="background:rgba(79,142,247,0.08)">
+    <td><input id="rc-name-${idx}" value="${row.className}" style="width:100%;min-width:120px"></td>
+    <td style="white-space:nowrap">${dayChecks}</td>
+    <td><select id="rc-period-${idx}" style="width:80px">${buildPeriodSelectOptions(periods, row.periodCode)}</select></td>
+    <td><select id="rc-room-${idx}" style="width:100px">${buildRoomSelectOptions(rooms, row.roomCode)}</select></td>
+    <td style="white-space:nowrap">
+      <button class="btn btn-success btn-sm" onclick="saveRoomClassRow(${idx})" style="margin-right:4px">💾</button>
+      <button class="btn btn-secondary btn-sm" onclick="cancelRoomClassEdit(${idx})">✕</button>
+    </td>
+  </tr>`;
+}
+
+function openRoomClassEdit(idx) {
+  const tr = document.getElementById('rc-row-' + idx);
+  if (tr) tr.outerHTML = buildRoomClassEditRow(roomOverviewData.classRoomList[idx], idx);
+}
+
+function cancelRoomClassEdit(idx) {
+  const tr = document.getElementById('rc-row-' + idx);
+  if (tr) tr.outerHTML = buildRoomClassRow(roomOverviewData.classRoomList[idx], idx);
+}
+
+async function saveRoomClassRow(idx) {
+  const row = roomOverviewData.classRoomList[idx];
+  const name = document.getElementById(`rc-name-${idx}`)?.value.trim() || '';
+  if (!name) { alert('⚠️ 班級名稱不能為空'); return; }
+
+  const cycle = [1,2,3,4,5,6]
+    .filter(d => document.getElementById(`rc-day-${idx}-${d}`)?.checked)
+    .join(',');
+  if (!cycle) { alert('⚠️ 至少要勾選一個星期'); return; }
+
+  const periodCode = document.getElementById(`rc-period-${idx}`)?.value || '';
+  const roomCode = document.getElementById(`rc-room-${idx}`)?.value || '';
+
+  const payload = {
+    action: 'saveSettingRow',
+    rowIndex: row.rowIndex,
+    name: name,
+    type: row.type,
+    lead: row.lead,
+    assist: row.assist,
+    hours: row.hours,
+    cycle: cycle,
+    effectiveDate: row.effectiveDate,
+    endDate: row.endDate,
+    periodCode: periodCode,
+    roomCode: roomCode
+  };
+
   showOverlay('儲存中...');
   try {
-    const r = await gasPost({ action: 'updateClassRoom', rowIndex, roomCode, force: !!force });
+    const r = await gasPost(payload);
     hideOverlay();
     if (r?.ok) {
-      showStatus('roomsStatus','success', `✅ ${r.className || ''} 教室已更新為「${r.roomCode || '未填'}」`);
+      showStatus('roomsStatus', 'success', `✅ ${name} 已更新`);
       await loadRoomOverview();
-    } else if (r?.conflict) {
-      const dayNames = ['日','一','二','三','四','五','六'];
-      const detail = (r.conflicts || []).map(c => `${c.className}（${dayNames[c.weekday]}/${c.periodCode}/${c.source}）`).join('\n');
-      if (confirm(`⚠️ 這間教室在同時段已有其他班級：\n\n${detail}\n\n仍要強制指派嗎？`)) {
-        await changeClassRoom(rowIndex, roomCode, true);
-      } else {
-        await loadRoomOverview();
-      }
     } else {
-      showStatus('roomsStatus','error','❌ ' + (r?.error || '更新失敗'));
-      await loadRoomOverview();
+      showStatus('roomsStatus', 'error', '❌ ' + (r?.error || '儲存失敗'));
     }
-  } catch(e) {
+  } catch (e) {
     hideOverlay();
-    showStatus('roomsStatus','error','❌ ' + e.message);
+    showStatus('roomsStatus', 'error', '❌ ' + e.message);
   }
 }
- const WEEKDAY_ROW_COLORS = {
-  1: 'rgba(79,142,247,0.10)',
-  2: 'rgba(52,201,126,0.10)',
-  3: 'rgba(245,166,35,0.10)',
-  4: 'rgba(124,92,252,0.10)',
-  5: 'rgba(224,82,82,0.10)',
-  6: 'rgba(110,231,183,0.10)'
-};
-const WEEKDAY_ACCENT_COLORS = {
-  1: '#4f8ef7', 2: '#34c97e', 3: '#f5a623',
-  4: '#7c5cfc', 5: '#e05252', 6: '#6ee7a8'
-};
 
+async function deleteRoomClassRow(idx) {
+  const row = roomOverviewData.classRoomList[idx];
+  if (!row) return;
+  if (!confirm(`確定刪除「${row.className}」（${row.weekdaysStr}/${row.periodCode || '未填節次'}）這筆排課設定？\n\n此動作不可復原。`)) return;
+
+  showOverlay('刪除中...');
+  try {
+    const r = await gasPost({ action: 'deleteSettingRow', rowIndex: row.rowIndex });
+    hideOverlay();
+    if (r?.ok) {
+      showStatus('roomsStatus', 'success', `✅ 已刪除 ${row.className}`);
+      await loadRoomOverview();
+    } else {
+      showStatus('roomsStatus', 'error', '❌ ' + (r?.error || '刪除失敗'));
+    }
+  } catch (e) {
+    hideOverlay();
+    showStatus('roomsStatus', 'error', '❌ ' + e.message);
+  }
+}
 function renderRoomMatrix(data) {
   const wrap = document.getElementById('roomMatrixWrap');
   const rooms = data.rooms, periods = data.periods, weekdays = data.weekdays, grid = data.grid, pending = data.pending;
