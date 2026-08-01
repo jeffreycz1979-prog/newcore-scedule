@@ -2032,6 +2032,18 @@ async function deleteRoomClassRow(idx) {
     showStatus('roomsStatus', 'error', '❌ ' + e.message);
   }
 }
+  const WEEKDAY_ROW_COLORS = {
+  1: 'rgba(79,142,247,0.10)',
+  2: 'rgba(52,201,126,0.10)',
+  3: 'rgba(245,166,35,0.10)',
+  4: 'rgba(124,92,252,0.10)',
+  5: 'rgba(224,82,82,0.10)',
+  6: 'rgba(110,231,183,0.10)'
+};
+const WEEKDAY_ACCENT_COLORS = {
+  1: '#4f8ef7', 2: '#34c97e', 3: '#f5a623',
+  4: '#7c5cfc', 5: '#e05252', 6: '#6ee7a8'
+};
 function renderRoomMatrix(data) {
   const wrap = document.getElementById('roomMatrixWrap');
   const rooms = data.rooms, periods = data.periods, weekdays = data.weekdays, grid = data.grid, pending = data.pending;
