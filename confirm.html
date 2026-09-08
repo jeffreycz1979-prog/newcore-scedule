@@ -231,8 +231,11 @@ function render(){
   /* 待確認 / 有疑義 → 可填寫 */
   const prevNote = d.status === '有疑義' ? (d.note || '') : '';
   app.innerHTML = header
-    + (d.status === '有疑義'
-        ? `<div class="note warn">你先前回報了疑義，Jeffrey 處理中。可以在下方補充說明後再次送出。</div>` : '')
+     + (d.status === '有疑義'
+        ? `<div class="note warn"><b>你已回報疑義，Jeffrey 處理中。</b><br>
+             ・數字更正後會另外寄一封<b>新的連結</b>給你，屆時請用那封確認<br>
+             ・若你發現是自己看錯、這些數字其實沒問題，可直接在下方勾選確認<br>
+             ・還有要補充的，也可以再次送出</div>` : '')
     + summary + `
     <div class="card">
       <h2>核對與簽名</h2>
