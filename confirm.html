@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>時數確認單 | NewCore</title>
+<style>
+:root{
+  --green:#274e13; --green-l:#3a6b22;
+  --ink:#1f2328; --muted:#6b7280; --line:#e3e6ea;
+  --bg:#f4f6f4; --card:#fff;
+  --red:#c5221f; --amber:#b45309; --amber-bg:#fef6e7;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:"Microsoft JhengHei","PingFang TC",-apple-system,"Segoe UI",sans-serif;
+  line-height:1.6;-webkit-text-size-adjust:100%}
+.wrap{max-width:560px;margin:0 auto;padding:0 0 60px}
+
+header{background:var(--green);color:#fff;padding:26px 20px}
+header .ym{font-size:13px;opacity:.85;letter-spacing:.05em}
+header h1{margin:2px 0 0;font-size:21px;font-weight:700}
+header .who{margin-top:6px;font-size:15px;opacity:.92}
+
+.card{background:var(--card);margin:14px;border:1px solid var(--line);
+  border-radius:12px;overflow:hidden}
+.card h2{margin:0;padding:13px 16px;font-size:14px;font-weight:700;
+  border-bottom:1px solid var(--line);background:#fafbfa;color:#374151}
+.pad{padding:16px}
+
+.total{text-align:center;padding:22px 16px}
+.total .n{font-size:40px;font-weight:800;color:var(--green);line-height:1.1}
+.total .u{font-size:15px;font-weight:600;color:var(--muted);margin-left:4px}
+.total .sub{margin-top:4px;font-size:14px;color:var(--muted)}
+
+table.brk{width:100%;border-collapse:collapse}
+table.brk td{padding:11px 16px;border-top:1px solid var(--line);font-size:15px}
+table.brk tr:first-child td{border-top:none}
+table.brk td.role{font-weight:600;width:34%}
+table.brk td.hrs{text-align:right;width:33%;font-variant-numeric:tabular-nums}
+table.brk td.cnt{text-align:right;width:33%;font-variant-numeric:tabular-nums;color:var(--muted)}
+.sub-row td.role,.sub-row td.hrs{color:var(--red)}
+
+.cls{padding:13px 16px;border-top:1px solid var(--line)}
+.cls:first-child{border-top:none}
+.cls .nm{font-weight:700;font-size:15px;margin-bottom:3px}
+.cls .ln{font-size:13.5px;color:var(--muted);display:flex;justify-content:space-between}
+.cls .ln b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+
+label.chk{display:flex;gap:11px;align-items:flex-start;cursor:pointer;
+  padding:14px;border:2px solid var(--line);border-radius:10px;margin-bottom:14px}
+label.chk.on{border-color:var(--green);background:#f2f7ef}
+label.chk input{width:21px;height:21px;margin:1px 0 0;flex:none;accent-color:var(--green)}
+label.chk span{font-size:15px;font-weight:600}
+
+.fld{margin-bottom:14px}
+.fld label{display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:5px}
+.fld input,.fld textarea{width:100%;padding:11px 12px;border:1px solid #cfd4da;
+  border-radius:8px;font-size:16px;font-family:inherit;background:#fff;color:var(--ink)}
+.fld input:focus,.fld textarea:focus{outline:none;border-color:var(--green);
+  box-shadow:0 0 0 3px rgba(39,78,19,.12)}
+.fld textarea{min-height:84px;resize:vertical}
+.hint{font-size:12.5px;color:var(--muted);margin-top:5px}
+
+button.go{width:100%;padding:15px;border:none;border-radius:10px;background:var(--green);
+  color:#fff;font-size:16px;font-weight:700;font-family:inherit;cursor:pointer}
+button.go:active{background:var(--green-l)}
+button.go:disabled{background:#9aa3ab;cursor:not-allowed}
+button.go.warn{background:var(--amber)}
+
+.note{margin:14px;padding:13px 15px;border-radius:10px;font-size:14px}
+.note.warn{background:var(--amber-bg);border:1px solid #f0d9a8;color:var(--amber)}
+.note.err{background:#fdeceb;border:1px solid #f5c6c4;color:var(--red)}
+.note.ok{background:#eef6e9;border:1px solid #cbe3bd;color:var(--green)}
+
+.done{margin:14px;padding:26px 20px;background:var(--card);border:1px solid var(--line);
+  border-radius:12px;text-align:center}
+.done .ic{font-size:42px;line-height:1}
+.done h2{margin:10px 0 4px;font-size:19px;color:var(--green)}
+.done p{margin:3px 0;font-size:14px;color:var(--muted)}
+.done .sig{margin-top:14px;padding-top:14px;border-top:1px solid var(--line);
+  font-size:14px;color:var(--ink)}
+
+.foot{text-align:center;font-size:12px;color:var(--muted);padding:18px 20px}
+.center{text-align:center;padding:50px 20px;color:var(--muted)}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="loading" class="center">載入中…</div>
+  <div id="fatal" class="center" hidden></div>
+  <div id="app" hidden></div>
+</div>
+
+<script>
+/* ══════════════════════════════════════════════════════
+   ⬇⬇⬇  唯一要改的一行：貼上排課系統的 GAS Web App 網址  ⬇⬇⬇
+   （部署 → 管理部署作業 → 複製那條 .../exec 結尾的網址）
+   ══════════════════════════════════════════════════════ */
+const GAS_URL = 'https://script.google.com/macros/s/請貼上你的部署ID/exec';
+
+/* ---------- 小工具 ---------- */
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? '' : s)
+  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const num = v => (Math.round((Number(v)||0)*100)/100);
+
+function jsonp(params){
+  return new Promise((resolve,reject)=>{
+    const cb = 'ncb_' + Math.random().toString(36).slice(2);
+    const s = document.createElement('script');
+    const timer = setTimeout(()=>{ cleanup(); reject(new Error('連線逾時')); }, 25000);
+    function cleanup(){ clearTimeout(timer); delete window[cb]; s.remove(); }
+    window[cb] = d => { cleanup(); resolve(d); };
+    s.onerror = () => { cleanup(); reject(new Error('無法連線到系統')); };
+    s.src = GAS_URL + '?' + new URLSearchParams({...params, callback: cb});
+    document.head.appendChild(s);
+  });
+}
+
+async function post(body){
+  // text/plain 可避開 CORS preflight（GAS 不支援 OPTIONS）
+  const res = await fetch(GAS_URL, {
+    method:'POST',
+    headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body: JSON.stringify(body)
+  });
+  return res.json();
+}
+
+/* ---------- 狀態 ---------- */
+const token = new URLSearchParams(location.search).get('t') || '';
+let DATA = null;
+let nameWarned = false;
+let sending = false;
+
+/* ---------- 啟動 ---------- */
+(async function init(){
+  if (!token) return fatal('這個連結缺少確認碼，請使用信件中的完整連結。');
+  if (GAS_URL.includes('請貼上')) return fatal('系統尚未設定完成（GAS_URL 未填）。');
+  try {
+    const r = await jsonp({ action:'getConfirmData', t: token });
+    if (!r || !r.ok) {
+      const m = { invalid_token:'這個確認連結無效，或已被重新發送。請使用最新一封信裡的連結。',
+                  missing_token:'連結不完整。' }[r && r.error] || ('讀取失敗：' + ((r&&r.error)||'未知錯誤'));
+      return fatal(m);
+    }
+    DATA = r.data;
+    render();
+  } catch (e) { fatal(e.message); }
+})();
+
+function fatal(msg){
+  $('#loading').hidden = true;
+  const el = $('#fatal');
+  el.hidden = false;
+  el.innerHTML = `<div class="note err" style="margin:20px 0;text-align:left">${esc(msg)}</div>`;
+}
+
+/* ---------- 畫面 ---------- */
+function render(){
+  const d = DATA;
+  $('#loading').hidden = true;
+  const app = $('#app');
+  app.hidden = false;
+
+  const rows = [
+    { k:'lead',   label:'主教', hrs:num(d.leadHrs),   cnt:d.leadCnt||0,   cls:'' },
+    { k:'assist', label:'助教', hrs:num(d.assistHrs), cnt:d.assistCnt||0, cls:'' },
+    { k:'sub',    label:'休代', hrs:num(d.subHrs),    cnt:d.subCnt||0,    cls:'sub-row' }
+  ].filter(r => r.hrs > 0 || r.cnt > 0);
+
+  const totalCnt = (d.leadCnt||0) + (d.assistCnt||0) + (d.subCnt||0);
+
+  const clsHtml = Object.keys(d.classes || {}).sort().map(name => {
+    const c = d.classes[name];
+    const lines = [
+      ['主教', num(c.lead),   c.leadCnt   || 0],
+      ['助教', num(c.assist), c.assistCnt || 0],
+      ['休代', num(c.sub),    c.subCnt    || 0]
+    ].filter(x => x[1] > 0 || x[2] > 0)
+     .map(x => `<div class="ln"><span>${x[0]}</span><b>${x[1]} 小時 · ${x[2]} 次</b></div>`)
+     .join('');
+    return `<div class="cls"><div class="nm">${esc(name)}</div>${lines}</div>`;
+  }).join('') || '<div class="pad" style="color:#6b7280">本月無班級明細</div>';
+
+  const header = `
+    <header>
+      <div class="ym">${d.year} 年 ${d.month} 月</div>
+      <h1>教學時數確認單</h1>
+      <div class="who">${esc(d.teacher)} 老師</div>
+    </header>`;
+
+  const summary = `
+    <div class="card">
+      <div class="total">
+        <div><span class="n">${num(d.totalHrs)}</span><span class="u">小時</span></div>
+        <div class="sub">共 ${totalCnt} 次</div>
+      </div>
+      <table class="brk">
+        ${rows.map(r=>`<tr class="${r.cls}">
+          <td class="role">${r.label}</td>
+          <td class="hrs">${r.hrs} 小時</td>
+          <td class="cnt">${r.cnt} 次</td></tr>`).join('')}
+      </table>
+    </div>
+    <div class="card"><h2>班級明細</h2>${clsHtml}</div>`;
+
+  /* 已確認 → 唯讀 */
+  if (d.status === '已確認') {
+    app.innerHTML = header + summary + `
+      <div class="done">
+        <div class="ic">✅</div>
+        <h2>已完成確認</h2>
+        <p>${esc(d.confirmedAt)}</p>
+        <div class="sig">簽名：<b>${esc(d.signature)}</b></div>
+        ${d.note ? `<div class="sig">備註：${esc(d.note)}</div>` : ''}
+      </div>
+      <div class="foot">如需更正，請聯繫 Jeffrey。<br>NewCore 教務系統</div>`;
+    return;
+  }
+
+  if (d.status === '已作廢') {
+    app.innerHTML = header + `
+      <div class="note warn">這份確認單已因排課更正而作廢，請改用最新一封信裡的連結。</div>
+      <div class="foot">NewCore 教務系統</div>`;
+    return;
+  }
+
+  /* 待確認 / 有疑義 → 可填寫 */
+  const prevNote = d.status === '有疑義' ? (d.note || '') : '';
+  app.innerHTML = header
+    + (d.status === '有疑義'
+        ? `<div class="note warn">你先前回報了疑義，Jeffrey 處理中。可以在下方補充說明後再次送出。</div>` : '')
+    + summary + `
+    <div class="card">
+      <h2>核對與簽名</h2>
+      <div class="pad">
+        <label class="chk" id="chkBox">
+          <input type="checkbox" id="agree">
+          <span>我已核對上方時數，確認無誤</span>
+        </label>
+
+        <div class="fld">
+          <label for="sig">你的姓名（等同簽名）</label>
+          <input id="sig" type="text" autocomplete="name" placeholder="請輸入姓名">
+        </div>
+
+        <div class="fld">
+          <label for="note">備註／有疑義的地方</label>
+          <textarea id="note" placeholder="數字有出入請寫在這裡，例如：8/22 那堂我請假，不應計入">${esc(prevNote)}</textarea>
+          <div class="hint">若<b>不勾選</b>上方確認、只填備註送出，系統會記為「有疑義」並通知 Jeffrey。</div>
+        </div>
+
+        <div id="msg"></div>
+        <button class="go" id="btn">送出</button>
+      </div>
+    </div>
+    <div class="foot">此頁由 NewCore 教務系統自動產生<br>連結專屬於你本人，請勿轉發</div>`;
+
+  const agree = $('#agree'), btn = $('#btn');
+  agree.addEventListener('change', ()=>{
+    $('#chkBox').classList.toggle('on', agree.checked);
+    btn.textContent = agree.checked ? '確認並送出' : '送出';
+    nameWarned = false; btn.classList.remove('warn');
+  });
+  $('#sig').addEventListener('input', ()=>{ nameWarned = false; btn.classList.remove('warn'); });
+  btn.addEventListener('click', submit);
+}
+
+/* ---------- 送出 ---------- */
+function msg(cls, text){ $('#msg').innerHTML = `<div class="note ${cls}" style="margin:0 0 14px">${esc(text)}</div>`; }
+
+async function submit(){
+  if (sending) return;
+  const agreed = $('#agree').checked;
+  const sig    = $('#sig').value.trim();
+  const note   = $('#note').value.trim();
+  const btn    = $('#btn');
+
+  if (agreed && !sig) return msg('err','請輸入你的姓名。');
+  if (!agreed && !note) return msg('err','若未勾選確認，請在備註說明哪裡有問題。');
+
+  // 姓名比對：不符只提示，第二次點擊仍可送出
+  if (sig && !nameWarned) {
+    const a = DATA.teacher.replace(/\s/g,'').toLowerCase();
+    const b = sig.replace(/\s/g,'').toLowerCase();
+    if (a.indexOf(b) < 0 && b.indexOf(a) < 0) {
+      nameWarned = true;
+      btn.classList.add('warn');
+      btn.textContent = '仍要送出';
+      return msg('warn', `你輸入的姓名與系統紀錄（${DATA.teacher}）不同。確定無誤請再按一次。`);
+    }
+  }
+
+  sending = true;
+  btn.disabled = true;
+  btn.textContent = '送出中…';
+  try {
+    const r = await post({ action:'submitConfirm', token, agreed, signature: sig, note });
+    if (r && r.ok) {
+      DATA.status      = r.status;
+      DATA.signature   = sig;
+      DATA.note        = note;
+      DATA.confirmedAt = new Date().toLocaleString('zh-TW',{hour12:false});
+      if (r.status === '已確認') { render(); window.scrollTo(0,0); }
+      else {
+        msg('ok','已送出，狀態記為「有疑義」，Jeffrey 會盡快處理。');
+        btn.textContent = '已送出'; btn.disabled = true;
+      }
+      return;
+    }
+    if (r && r.error === 'already') { DATA = r.data; render(); window.scrollTo(0,0); return; }
+    if (r && r.error === 'voided')  { msg('warn','這份確認單已作廢，請使用最新的連結。'); }
+    else { msg('err','送出失敗：' + ((r && r.error) || '未知錯誤')); }
+    btn.disabled = false; btn.textContent = agreed ? '確認並送出' : '送出';
+  } catch (e) {
+    msg('err','送出失敗：' + e.message + '（請檢查網路後再試一次）');
+    btn.disabled = false; btn.textContent = agreed ? '確認並送出' : '送出';
+  } finally {
+    sending = false;
+  }
+}
+</script>
+</body>
+</html>
