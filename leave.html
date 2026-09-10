@@ -30,6 +30,12 @@
   .counter{text-align:right;font-size:12px;color:var(--muted);margin-top:4px}
   .counter.over{color:var(--err);font-weight:700}
 
+  /* ---- 分頁 ---- */
+  .tabs{display:flex;gap:8px;margin-bottom:14px}
+  .tabs button{flex:1;padding:11px 8px;border-radius:8px;font-size:15px;
+               background:#e3eaef;color:var(--brand-d);font-weight:600}
+  .tabs button.on{background:var(--brand);color:#fff}
+
   .lesson{border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:10px;
           background:#fbfdfe}
   .lesson.on{border-color:var(--brand);background:#e8f5f3}
@@ -46,6 +52,26 @@
   .lesson.on .lsub{display:block}
   .note{font-size:12px;color:var(--muted);margin-top:4px}
   .applied{font-size:12px;color:var(--err);margin-top:4px}
+
+  /* ---- 我的申請 ---- */
+  .app-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;
+            border-left:3px solid var(--brand);padding-left:9px;margin-bottom:10px}
+  .app-date{font-size:16px;font-weight:700}
+  .app-id{font-size:12px;color:var(--muted)}
+  .st{display:inline-block;font-size:12px;padding:2px 9px;border-radius:11px;
+      background:#e0e0e0;color:#444;white-space:nowrap}
+  .st.wait{background:#fff8e1;color:#8d6e00}
+  .st.ok{background:#e8f5e9;color:#1b5e20}
+  .st.no{background:#ffebee;color:#8e1414}
+  .st.gone{background:#eceff1;color:#546e7a}
+  .item{border-top:1px dashed var(--line);padding-top:12px;margin-top:12px}
+  .item:first-of-type{border-top:0;padding-top:0;margin-top:0}
+  .hbtns{display:flex;gap:8px;margin-top:8px}
+  .hbtns button{font-size:14px;padding:10px}
+  .btn-ghost{background:#e3eaef;color:var(--brand-d)}
+  .btn-danger{background:#ffebee;color:#8e1414}
+  .saved{font-size:12px;color:var(--ok);margin-top:6px;display:none}
+  .saved.show{display:block}
 
   button{width:100%;padding:14px;border:0;border-radius:8px;background:var(--brand);
          color:#fff;font:inherit;font-size:16px;font-weight:700;cursor:pointer}
@@ -73,31 +99,44 @@
       <div class="who" id="tWho"></div>
     </header>
 
+    <div class="tabs">
+      <button id="tabNew" class="on"></button>
+      <button id="tabMine"></button>
+    </div>
+
     <div id="msg" class="msg"></div>
 
-    <div class="card">
-      <h2 id="tStep1">1. 請假日期</h2>
-      <input type="date" id="date">
-      <div class="note" id="tDateHint">選好日期後會自動列出你當天的課。</div>
-    </div>
+    <!-- ============ 分頁一：提出申請 ============ -->
+    <div id="viewNew">
+      <div class="card">
+        <h2 id="tStep1">1. 請假日期</h2>
+        <input type="date" id="date">
+        <div class="note" id="tDateHint">選好日期後會自動列出你當天的課。</div>
+      </div>
 
-    <div class="card hide" id="lessonCard">
-      <h2 id="tStep2">2. 要請哪幾堂</h2>
-      <div id="lessons"></div>
-    </div>
+      <div class="card hide" id="lessonCard">
+        <h2 id="tStep2">2. 要請哪幾堂</h2>
+        <div id="lessons"></div>
+      </div>
 
-    <div class="card hide" id="reasonCard">
-      <h2 id="tStep3">3. 請假事由</h2>
-      <textarea id="reason" maxlength="200"></textarea>
-      <div class="counter" id="cnt">0 / 200</div>
-      <div class="note" id="tHandoverNote">
-        交接事項不用現在填。核准後會另外寄一個連結給你補。
+      <div class="card hide" id="reasonCard">
+        <h2 id="tStep3">3. 請假事由</h2>
+        <textarea id="reason" maxlength="200"></textarea>
+        <div class="counter" id="cnt">0 / 200</div>
+        <div class="note" id="tHandoverNote">
+          交接事項不用現在填。核准後到「我的申請」逐堂補就好。
+        </div>
+      </div>
+
+      <div class="card hide" id="sendCard">
+        <button id="send" disabled></button>
+        <div class="note" id="tSendNote" style="margin-top:10px"></div>
       </div>
     </div>
 
-    <div class="card hide" id="sendCard">
-      <button id="send" disabled></button>
-      <div class="note" id="tSendNote" style="margin-top:10px"></div>
+    <!-- ============ 分頁二：我的申請 ============ -->
+    <div id="viewMine" class="hide">
+      <div id="mineBody"></div>
     </div>
   </div>
 
@@ -105,6 +144,7 @@
     <header><h1 id="tDone">已送出</h1></header>
     <div class="msg ok show" id="doneMsg"></div>
     <div class="card"><div id="doneList"></div></div>
+    <button id="backBtn" class="btn-ghost" style="margin-top:4px"></button>
   </div>
 
 </div>
@@ -112,7 +152,7 @@
 <script>
 /* ============================================================
  *  ⬇⬇⬇ 唯一要你改的一行：貼上月排課系統的 /exec 網址 ⬇⬇⬇
- *  跟 confirm.html 裡的那個是同一個，直接複製過來
+ *  跟 confirm.html / handover.html 裡的那個是同一個
  * ============================================================ */
 var GAS_URL = 'https://script.google.com/macros/s/請貼上部署ID/exec';
 /* ============================================================ */
@@ -122,13 +162,16 @@ var LANG = 'zh';
 var TOKEN = '';
 var TEACHERS = [];
 var LESSONS = [];
+var HMAX = 300;               // 交接事項單堂上限，由後端回傳覆寫
+var MINE = null;              // 我的申請快取
+var VIEW = 'new';
 
 /* ---------- 雙語 ---------- */
 var I18N = {
   zh: {
     title:'請假申請', step1:'1. 請假日期', step2:'2. 要請哪幾堂', step3:'3. 請假事由',
     dateHint:'選好日期後會自動列出你當天的課。',
-    handoverNote:'交接事項不用現在填。核准後會另外寄一個連結給你補。',
+    handoverNote:'交接事項不用現在填。核准後到「我的申請」逐堂補就好。',
     send:'送出申請', sending:'送出中…',
     sendNote:'送出後管理者會收到通知並核准。代課老師請你自己先談好。',
     lead:'主教', asst:'助教', who:'（{r}）',
@@ -144,12 +187,31 @@ var I18N = {
     errNet:'連線逾時。可能是網路太慢或系統在啟動，請再按一次。',
     errBusy:'系統忙碌中，請稍等幾秒再送出。',
     doneTitle:'已送出', doneMsg:'申請編號 {id}，共 {n} 堂。管理者核准後你會收到通知信。',
-    skipped:'以下沒有送出：'
+    skipped:'以下沒有送出：',
+
+    tabNew:'提出申請', tabMine:'我的申請',
+    back:'回到申請表',
+    mineEmpty:'目前沒有任何申請紀錄。',
+    mineLoad:'查詢你的申請…',
+    subBy:'代課', typeBy:'類型', reasonBy:'事由', memoBy:'管理者備註',
+    noSub:'待協尋',
+    progressBy:'當天進度',
+    handoverLabel:'交接事項（代課老師看得到）',
+    handoverPh:'例：小明這週要補考、第 3 課的小考卷在講桌抽屜…',
+    hSave:'儲存', hSaveNotify:'儲存並通知', hSaving:'儲存中…',
+    hSaved:'已儲存 {t}', hSavedMailed:'已儲存並寄信給代課老師（{t}）',
+    hLockedNote:'這張單目前是「{s}」，不能再編輯交接事項。',
+    readAt:'代課老師已於 {t} 看過',
+    notRead:'代課老師還沒開過連結',
+    cancel:'撤回這張申請', cancelling:'撤回中…',
+    cancelAsk:'確定要撤回 {d} 這張申請嗎？撤回後要再請假請重新申請。',
+    cancelled:'已撤回。',
+    errCancelled:'這張單已經是「{s}」，不能自己撤回。已核准的要請管理者撤銷。'
   },
   en: {
     title:'Leave Request', step1:'1. Date', step2:'2. Which classes', step3:'3. Reason',
     dateHint:'Pick a date and your classes will be listed.',
-    handoverNote:'No need to write handover notes now. You will get a link after approval.',
+    handoverNote:'No need to write handover notes now. Add them under "My requests" after approval.',
     send:'Submit', sending:'Sending…',
     sendNote:'The admin will be notified and will approve it. Please arrange the cover teacher yourself first.',
     lead:'Lead', asst:'Assist', who:' ({r})',
@@ -165,7 +227,26 @@ var I18N = {
     errNet:'Timed out. The server may be waking up — please tap again.',
     errBusy:'System is busy, please wait a few seconds and try again.',
     doneTitle:'Submitted', doneMsg:'Request {id}, {n} class(es). You will be notified after approval.',
-    skipped:'Not submitted:'
+    skipped:'Not submitted:',
+
+    tabNew:'New request', tabMine:'My requests',
+    back:'Back to the form',
+    mineEmpty:'No requests yet.',
+    mineLoad:'Loading your requests…',
+    subBy:'Cover', typeBy:'Type', reasonBy:'Reason', memoBy:'Admin note',
+    noSub:'To be arranged',
+    progressBy:'Lesson progress',
+    handoverLabel:'Handover notes (visible to the cover teacher)',
+    handoverPh:'e.g. Ming has a re-test this week; the Unit 3 quiz papers are in the desk drawer…',
+    hSave:'Save', hSaveNotify:'Save & notify', hSaving:'Saving…',
+    hSaved:'Saved {t}', hSavedMailed:'Saved and emailed to the cover teacher ({t})',
+    hLockedNote:'This request is "{s}" — handover notes can no longer be edited.',
+    readAt:'Cover teacher read it at {t}',
+    notRead:'The cover teacher has not opened the link yet',
+    cancel:'Withdraw this request', cancelling:'Withdrawing…',
+    cancelAsk:'Withdraw the request for {d}? You will have to submit a new one.',
+    cancelled:'Withdrawn.',
+    errCancelled:'This request is already "{s}" and cannot be withdrawn here. Ask the admin to revert an approved one.'
   }
 };
 function T(k){ return I18N[LANG][k]; }
@@ -228,6 +309,24 @@ function say(kind, text){
 }
 function clearSay(){ $('msg').className = 'msg'; }
 
+var WD_ZH = ['日','一','二','三','四','五','六'];
+var WD_EN = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+function dateLabel(ymd){
+  var p = String(ymd).split('-');
+  if (p.length !== 3) return ymd;
+  var d = new Date(+p[0], +p[1] - 1, +p[2]);
+  if (isNaN(d.getTime())) return ymd;
+  return (LANG === 'en')
+    ? WD_EN[d.getDay()] + ' ' + (+p[1]) + '/' + (+p[2])
+    : (+p[1]) + '/' + (+p[2]) + '（' + WD_ZH[d.getDay()] + '）';
+}
+function stClass(s){
+  if (s === '已核准') return 'ok';
+  if (s === '已駁回') return 'no';
+  if (s === '已撤銷') return 'gone';
+  return 'wait';
+}
+
 /* ---------- 啟動 ---------- */
 (function init(){
   var m = location.search.match(/[?&]t=([^&]+)/);
@@ -248,6 +347,9 @@ function clearSay(){ $('msg').className = 'msg'; }
     $('tHandoverNote').textContent = T('handoverNote');
     $('tSendNote').textContent     = T('sendNote');
     $('send').textContent          = T('send');
+    $('tabNew').textContent        = T('tabNew');
+    $('tabMine').textContent       = T('tabMine');
+    $('backBtn').textContent       = T('back');
     $('tWho').textContent          = d.teacher.name + T('who').replace('{r}', d.teacher.role);
 
     hide($('boot')); show($('app'));
@@ -255,6 +357,26 @@ function clearSay(){ $('msg').className = 'msg'; }
     $('bootMsg').textContent = I18N.zh.errNet;
   });
 })();
+
+/* ---------- 分頁切換 ---------- */
+$('tabNew').addEventListener('click', function(){ switchTo('new'); });
+$('tabMine').addEventListener('click', function(){ switchTo('mine'); });
+$('backBtn').addEventListener('click', function(){
+  hide($('done')); show($('app')); switchTo('new');
+  $('date').value = ''; hide($('lessonCard')); hide($('reasonCard')); hide($('sendCard'));
+  $('reason').value = ''; $('cnt').textContent = '0 / 200';
+});
+
+function switchTo(v){
+  VIEW = v;
+  clearSay();
+  $('tabNew').classList.toggle('on', v === 'new');
+  $('tabMine').classList.toggle('on', v === 'mine');
+  $('viewNew').classList.toggle('hide', v !== 'new');
+  $('viewMine').classList.toggle('hide', v !== 'mine');
+  window.scrollTo(0, 0);
+  if (v === 'mine') loadMine();
+}
 
 /* ---------- 選日期 → 查課 ---------- */
 $('date').addEventListener('change', function(){
@@ -400,6 +522,7 @@ $('send').addEventListener('click', function(){
       else say('err', esc(T('errNet')) + (e ? '（' + esc(e) + '）' : ''));
       return;
     }
+    MINE = null;                                   // 快取作廢
     hide($('app'));
     $('tDone').textContent = T('doneTitle');
     $('doneMsg').textContent = T('doneMsg')
@@ -411,12 +534,206 @@ $('send').addEventListener('click', function(){
     $('doneList').innerHTML = extra
       || '<p class="note">' + esc(T('sendNote')) + '</p>';
     show($('done'));
+    btn.disabled = false; btn.textContent = T('send');
     window.scrollTo(0, 0);
   }, function(){
     btn.disabled = false; btn.textContent = T('send');
     say('err', esc(T('errNet')));
   });
 });
+
+/* ============================================================
+ *  我的申請：查狀態、逐堂補交接事項、待核准自撤
+ * ============================================================ */
+function loadMine(force){
+  if (MINE && !force) { renderMine(); return; }
+  $('mineBody').innerHTML = '<div class="center"><div class="spin"></div><p>'
+                          + esc(T('mineLoad')) + '</p></div>';
+  jsonp({ action:'getMyLeaves', token:TOKEN }, function(r){
+    if (!r || !r.ok) {
+      $('mineBody').innerHTML = '<p class="applied">' + esc(T('errToken')) + '</p>';
+      return;
+    }
+    MINE = r.items || [];
+    if (r.max) HMAX = r.max;
+    renderMine();
+  }, function(){
+    $('mineBody').innerHTML = '<p class="applied">' + esc(T('errNet')) + '</p>';
+  });
+}
+
+function renderMine(){
+  if (!MINE.length) {
+    $('mineBody').innerHTML = '<div class="card"><p class="note">'
+                            + esc(T('mineEmpty')) + '</p></div>';
+    return;
+  }
+
+  // 依申請編號分組（後端已排好序）
+  var groups = [], map = {};
+  MINE.forEach(function(it){
+    if (!map[it.apply]) { map[it.apply] = { apply: it.apply, items: [] }; groups.push(map[it.apply]); }
+    map[it.apply].items.push(it);
+  });
+
+  var h = '';
+  groups.forEach(function(g, gi){
+    var first = g.items[0];
+    h += '<div class="card">'
+       +   '<div class="app-head">'
+       +     '<div>'
+       +       '<div class="app-date">' + esc(dateLabel(first.date)) + '</div>'
+       +       '<div class="app-id">' + esc(g.apply) + '　'
+       +         esc(T('reasonBy')) + '：' + esc(first.reason) + '</div>'
+       +     '</div>'
+       +     '<span class="st ' + stClass(first.status) + '">' + esc(first.status) + '</span>'
+       +   '</div>';
+
+    if (first.memo) {
+      h += '<div class="note">' + esc(T('memoBy')) + '：' + esc(first.memo) + '</div>';
+    }
+
+    g.items.forEach(function(it){
+      var tag = (String(it.role).indexOf('主') >= 0)
+        ? '<span class="ltag lead">' + esc(T('lead')) + '</span>'
+        : '<span class="ltag asst">' + esc(T('asst')) + '</span>';
+
+      h += '<div class="item">'
+         +   '<div><span class="lcls">' + esc(it.cls) + '</span>' + tag + '</div>'
+         +   '<div class="note">' + esc(it.pc)
+         +     '　｜　' + esc(T('subBy')) + '：' + esc(it.sub || T('noSub'))
+         +     (it.subType ? '　｜　' + esc(T('typeBy')) + '：' + esc(it.subType) : '')
+         +   '</div>'
+         +   (it.progress
+              ? '<div class="note">' + esc(T('progressBy')) + '：' + esc(it.progress) + '</div>'
+              : '');
+
+      if (it.canEdit) {
+        h += '<div style="margin-top:9px">'
+           +   '<label>' + esc(T('handoverLabel')) + '</label>'
+           +   '<textarea id="h' + it.row + '" maxlength="' + HMAX + '" placeholder="'
+           +      esc(T('handoverPh')) + '">' + esc(it.handover) + '</textarea>'
+           +   '<div class="counter" id="hc' + it.row + '">'
+           +      it.handover.length + ' / ' + HMAX + '</div>'
+           +   '<div class="hbtns">'
+           +     '<button class="btn-ghost" id="hs' + it.row + '">' + esc(T('hSave')) + '</button>'
+           +     (it.status === '已核准' && it.sub
+                ? '<button id="hn' + it.row + '">' + esc(T('hSaveNotify')) + '</button>' : '')
+           +   '</div>'
+           +   '<div class="saved" id="hm' + it.row + '"></div>'
+           +   (it.hupd ? '<div class="note">' + esc(T('hSaved').replace('{t}', it.hupd)) + '</div>' : '')
+           +   (it.status === '已核准'
+                ? '<div class="note">' + esc(it.read
+                    ? T('readAt').replace('{t}', it.read) : T('notRead')) + '</div>'
+                : '')
+           + '</div>';
+      } else if (it.handover) {
+        h += '<div style="margin-top:9px"><label>' + esc(T('handoverLabel')) + '</label>'
+           +   '<div class="note">' + esc(it.handover) + '</div></div>';
+      }
+
+      h += '</div>';
+    });
+
+    if (first.canCancel) {
+      h += '<button class="btn-danger" id="cx' + gi + '" style="margin-top:12px">'
+         +   esc(T('cancel')) + '</button>';
+    } else if (first.status !== '已核准' && first.status !== '已駁回' && first.status !== '已撤銷') {
+      h += '<div class="note" style="margin-top:10px">'
+         +   esc(T('hLockedNote').replace('{s}', first.status)) + '</div>';
+    }
+
+    h += '</div>';
+  });
+
+  $('mineBody').innerHTML = h;
+  wireMine(groups);
+}
+
+function wireMine(groups){
+  MINE.forEach(function(it){
+    var ta = $('h' + it.row);
+    if (ta) {
+      ta.addEventListener('input', function(){
+        $('hc' + it.row).textContent = this.value.length + ' / ' + HMAX;
+      });
+    }
+    var bs = $('hs' + it.row);
+    if (bs) bs.addEventListener('click', function(){ saveHandover(it, 0, this); });
+    var bn = $('hn' + it.row);
+    if (bn) bn.addEventListener('click', function(){ saveHandover(it, 1, this); });
+  });
+
+  groups.forEach(function(g, gi){
+    var b = $('cx' + gi);
+    if (b) b.addEventListener('click', function(){ cancelApply(g, this); });
+  });
+}
+
+function saveHandover(it, notify, btn){
+  var ta = $('h' + it.row);
+  if (!ta) return;
+  var text = ta.value.trim();
+  var old = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = T('hSaving');
+  clearSay();
+
+  jsonp({
+    action: 'saveHandover',
+    token : TOKEN,
+    row   : it.row,
+    text  : text,
+    notify: notify ? 1 : 0
+  }, function(r){
+    btn.disabled = false; btn.textContent = old;
+    if (!r || !r.ok) {
+      var e = r && r.error;
+      if (e === 'busy') say('err', esc(T('errBusy')));
+      else if (e && e.indexOf('locked:') === 0)
+        say('err', esc(T('hLockedNote').replace('{s}', e.split(':')[1])));
+      else say('err', esc(T('errNet')) + (e ? '（' + esc(e) + '）' : ''));
+      return;
+    }
+    it.handover = text;
+    it.hupd = r.hupd;
+    var m = $('hm' + it.row);
+    m.className = 'saved show';
+    m.textContent = r.mailed
+      ? T('hSavedMailed').replace('{t}', r.hupd)
+      : T('hSaved').replace('{t}', r.hupd);
+  }, function(){
+    btn.disabled = false; btn.textContent = old;
+    say('err', esc(T('errNet')));
+  });
+}
+
+function cancelApply(g, btn){
+  var first = g.items[0];
+  if (!window.confirm(T('cancelAsk').replace('{d}', dateLabel(first.date)))) return;
+
+  var old = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = T('cancelling');
+  clearSay();
+
+  jsonp({ action:'cancelLeave', token:TOKEN, apply:g.apply }, function(r){
+    if (!r || !r.ok) {
+      btn.disabled = false; btn.textContent = old;
+      var e = r && r.error;
+      if (e === 'busy') say('err', esc(T('errBusy')));
+      else if (e && e.indexOf('already:') === 0)
+        say('err', esc(T('errCancelled').replace('{s}', e.split(':')[1])));
+      else say('err', esc(T('errNet')) + (e ? '（' + esc(e) + '）' : ''));
+      return;
+    }
+    say('ok', esc(T('cancelled')));
+    loadMine(true);
+  }, function(){
+    btn.disabled = false; btn.textContent = old;
+    say('err', esc(T('errNet')));
+  });
+}
 </script>
 </body>
 </html>

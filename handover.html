@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" translate="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<meta name="google" content="notranslate">
+<title>代課通知 Cover Teaching</title>
+<style>
+  :root{
+    --bg:#f4f6f8; --card:#fff; --ink:#22303c; --muted:#6b7c8a;
+    --line:#dde4ea; --brand:#00695c; --brand-d:#004d40;
+    --warn:#fff8e1; --warn-b:#fbc02d; --err:#c62828; --ok:#2e7d32;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;padding:0 14px 60px;background:var(--bg);color:var(--ink);
+       font:15px/1.6 -apple-system,"Noto Sans TC","Segoe UI",Arial,sans-serif}
+  .wrap{max-width:640px;margin:0 auto}
+  header{padding:22px 0 14px}
+  h1{margin:0;font-size:20px;letter-spacing:.5px}
+  .who{margin-top:6px;color:var(--muted);font-size:14px}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;
+        padding:16px;margin-bottom:14px}
+  .chead{border-left:3px solid var(--brand);padding-left:9px;margin-bottom:12px}
+  .cdate{font-size:13px;color:var(--muted)}
+  .ccls{font-size:17px;font-weight:700;margin-top:2px}
+  .ctag{display:inline-block;font-size:12px;padding:1px 8px;border-radius:10px;
+        background:#e0e0e0;color:#444;margin-left:6px;vertical-align:2px}
+  .ctag.lead{background:#00695c;color:#fff}
+  .ctag.asst{background:#5c6bc0;color:#fff}
+  .ctag.type{background:#ede7f6;color:#4527a0}
+
+  .kv{display:flex;gap:10px;font-size:14px;margin-top:4px}
+  .kv b{flex:0 0 auto;font-weight:600;color:var(--muted);font-size:13px;min-width:72px}
+
+  .sec{margin-top:14px;padding-top:12px;border-top:1px dashed var(--line)}
+  .sec h3{margin:0 0 6px;font-size:13px;color:var(--brand-d);font-weight:700}
+  .body{white-space:pre-wrap;word-break:break-word}
+  .empty{color:var(--muted);font-style:italic}
+  .stamp{font-size:12px;color:var(--muted);margin-top:6px}
+
+  button{width:100%;padding:14px;border:0;border-radius:8px;background:var(--brand);
+         color:#fff;font:inherit;font-size:16px;font-weight:700;cursor:pointer}
+  button:disabled{background:#b0bec5;cursor:default}
+  .msg{padding:12px 14px;border-radius:8px;margin-bottom:14px;font-size:14px;display:none}
+  .msg.show{display:block}
+  .msg.warn{background:var(--warn);border-left:3px solid var(--warn-b)}
+  .msg.err{background:#ffebee;border-left:3px solid var(--err);color:#8e1414}
+  .msg.ok{background:#e8f5e9;border-left:3px solid var(--ok);color:#1b5e20}
+  .center{text-align:center;padding:50px 20px;color:var(--muted)}
+  .spin{display:inline-block;width:22px;height:22px;border:3px solid #cfd8dc;
+        border-top-color:var(--brand);border-radius:50%;animation:s 1s linear infinite}
+  @keyframes s{to{transform:rotate(360deg)}}
+  .hide{display:none}
+  .foot{font-size:12px;color:var(--muted);text-align:center;margin-top:18px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div id="boot" class="center"><div class="spin"></div><p id="bootMsg">載入中…</p></div>
+
+  <div id="app" class="hide">
+    <header>
+      <h1 id="tTitle">代課通知</h1>
+      <div class="who" id="tWho"></div>
+    </header>
+
+    <div id="msg" class="msg"></div>
+    <div id="cards"></div>
+
+    <div class="card" id="ackCard">
+      <button id="ack"></button>
+      <div class="foot" id="tAckNote"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* ============================================================
+ *  ⬇⬇⬇ 唯一要你改的一行：貼上月排課系統的 /exec 網址 ⬇⬇⬇
+ *  跟 leave.html / confirm.html 裡的那個是同一個
+ * ============================================================ */
+var GAS_URL = 'https://script.google.com/macros/s/請貼上部署ID/exec';
+/* ============================================================ */
+
+var TIMEOUT = 45000;          // GAS 冷啟動在手機網路上要十幾秒
+var LANG = 'zh';
+var TOKEN = '';
+var DATA = null;
+
+/* ---------- 雙語 ---------- */
+var I18N = {
+  zh: {
+    title:'代課通知',
+    who:'{n} 老師，以下是請你代的課',
+    lead:'主教', asst:'助教',
+    origin:'原老師', role:'你的角色', pc:'節次',
+    progress:'當天進度', handover:'交接事項',
+    noProgress:'（系統沒有抓到當天進度）',
+    noHandover:'尚未填寫。原老師可以在上課前隨時補，接近那天再開一次這個連結。',
+    updated:'最後更新 {t}',
+    ask:'有疑問直接找 {n}。',
+    ack:'我看過了', acking:'送出中…', acked:'已於 {t} 確認',
+    ackNote:'按不按都不影響流程，按了辦公室就知道你看過了。',
+    errToken:'連結無效。請用信裡的專屬連結開啟。',
+    errRevoked:'這張代課單已經是「{s}」，不需要你代課了。有疑問請聯絡辦公室。',
+    errNet:'連線逾時。可能是網路太慢或系統在啟動，請重新整理再試一次。'
+  },
+  en: {
+    title:'Cover Teaching',
+    who:'Hi {n} — here are the classes you are covering',
+    lead:'Lead', asst:'Assistant',
+    origin:'Usual teacher', role:'Your role', pc:'Period',
+    progress:'Lesson progress', handover:'Handover notes',
+    noProgress:'(No progress found for this date)',
+    noHandover:'Not written yet. The usual teacher can add notes any time before the class — please check this link again nearer the day.',
+    updated:'Last updated {t}',
+    ask:'Any questions, contact {n} directly.',
+    ack:'I have read this', acking:'Sending…', acked:'Confirmed at {t}',
+    ackNote:'Optional — tapping it just lets the office know you have seen this.',
+    errToken:'Invalid link. Please use the personal link from your email.',
+    errRevoked:'This cover request is now "{s}". You are no longer needed. Please contact the office.',
+    errNet:'Timed out. The server may be waking up — please refresh and try again.'
+  }
+};
+function T(k){ return I18N[LANG][k]; }
+
+/* ---------- JSONP ---------- */
+var jsonpSeq = 0;
+function jsonp(params, cb, errCb){
+  var name = 'hcb' + (++jsonpSeq) + '_' + Date.now();
+  var done = false;
+  var s = document.createElement('script');
+
+  var timer = setTimeout(function(){
+    if (done) return;
+    done = true; cleanup();
+    errCb && errCb('timeout');
+  }, TIMEOUT);
+
+  function cleanup(){
+    clearTimeout(timer);
+    try { delete window[name]; } catch(e) { window[name] = undefined; }
+    if (s.parentNode) s.parentNode.removeChild(s);
+  }
+
+  window[name] = function(data){
+    if (done) return;
+    done = true; cleanup();
+    cb(data);
+  };
+
+  var q = [];
+  for (var k in params) {
+    if (params[k] === undefined || params[k] === null) continue;
+    q.push(encodeURIComponent(k) + '=' + encodeURIComponent(params[k]));
+  }
+  q.push('callback=' + name);
+
+  s.src = GAS_URL + '?' + q.join('&');
+  s.onerror = function(){
+    if (done) return;
+    done = true; cleanup();
+    errCb && errCb('neterror');
+  };
+  document.body.appendChild(s);
+}
+
+/* ---------- 小工具 ---------- */
+function $(id){ return document.getElementById(id); }
+function esc(t){
+  return String(t == null ? '' : t)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+function show(el){ el.classList.remove('hide'); }
+function hide(el){ el.classList.add('hide'); }
+
+var WD_ZH = ['日','一','二','三','四','五','六'];
+var WD_EN = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+function dateLabel(ymd){
+  var p = String(ymd).split('-');
+  if (p.length !== 3) return ymd;
+  var d = new Date(+p[0], +p[1] - 1, +p[2]);
+  if (isNaN(d.getTime())) return ymd;
+  return (LANG === 'en')
+    ? WD_EN[d.getDay()] + ' ' + (+p[1]) + '/' + (+p[2])
+    : (+p[1]) + '/' + (+p[2]) + '（' + WD_ZH[d.getDay()] + '）';
+}
+
+/* ---------- 啟動 ---------- */
+(function init(){
+  var m = location.search.match(/[?&]t=([^&]+)/);
+  TOKEN = m ? decodeURIComponent(m[1]) : '';
+  if (!TOKEN) { $('bootMsg').textContent = I18N.zh.errToken; return; }
+
+  jsonp({ action:'getHandover', token:TOKEN }, function(d){
+    if (!d || !d.ok) {
+      if (d && d.error === 'revoked') {
+        $('bootMsg').textContent = I18N.zh.errRevoked.replace('{s}', d.status || '已取消');
+      } else {
+        $('bootMsg').textContent = I18N.zh.errToken;
+      }
+      return;
+    }
+    DATA = d;
+    LANG = (d.lang === 'en') ? 'en' : 'zh';
+    document.documentElement.lang = (LANG === 'en') ? 'en' : 'zh-Hant';
+    render();
+    hide($('boot')); show($('app'));
+  }, function(){
+    $('bootMsg').textContent = I18N.zh.errNet;
+  });
+})();
+
+function render(){
+  $('tTitle').textContent = T('title');
+  $('tWho').textContent   = T('who').replace('{n}', DATA.sub);
+  $('tAckNote').textContent = T('ackNote');
+
+  var h = '';
+  DATA.cards.forEach(function(c){
+    var isLead = String(c.role).indexOf('主') >= 0;
+    var roleTag = isLead
+      ? '<span class="ctag lead">' + esc(T('lead')) + '</span>'
+      : '<span class="ctag asst">' + esc(T('asst')) + '</span>';
+    var typeTag = c.subType
+      ? '<span class="ctag type">' + esc(c.subType) + '</span>' : '';
+
+    h += '<div class="card">'
+       +   '<div class="chead">'
+       +     '<div class="cdate">' + esc(dateLabel(c.date)) + '</div>'
+       +     '<div class="ccls">' + esc(c.cls) + roleTag + typeTag + '</div>'
+       +   '</div>'
+       +   '<div class="kv"><b>' + esc(T('pc')) + '</b><span>' + esc(c.pc) + '</span></div>'
+       +   '<div class="kv"><b>' + esc(T('origin')) + '</b><span>' + esc(c.leaveBy) + '</span></div>'
+
+       +   '<div class="sec"><h3>' + esc(T('progress')) + '</h3>'
+       +     (c.progress
+            ? '<div class="body">' + esc(c.progress) + '</div>'
+            : '<div class="empty">' + esc(T('noProgress')) + '</div>')
+       +   '</div>'
+
+       +   '<div class="sec"><h3>' + esc(T('handover')) + '</h3>'
+       +     (c.handover
+            ? '<div class="body">' + esc(c.handover) + '</div>'
+              + (c.hupd ? '<div class="stamp">' + esc(T('updated').replace('{t}', c.hupd)) + '</div>' : '')
+            : '<div class="empty">' + esc(T('noHandover')) + '</div>')
+       +   '</div>'
+
+       +   '<div class="stamp">' + esc(T('ask').replace('{n}', c.leaveBy)) + '</div>'
+       + '</div>';
+  });
+  $('cards').innerHTML = h;
+
+  var btn = $('ack');
+  if (DATA.read) {
+    btn.disabled = true;
+    btn.textContent = T('acked').replace('{t}', DATA.read);
+  } else {
+    btn.textContent = T('ack');
+  }
+}
+
+/* ---------- 我看過了 ---------- */
+$('ack').addEventListener('click', function(){
+  var btn = this;
+  btn.disabled = true;
+  btn.textContent = T('acking');
+  jsonp({ action:'ackHandover', token:TOKEN }, function(r){
+    if (!r || !r.ok) {
+      btn.disabled = false; btn.textContent = T('ack');
+      var m = $('msg'); m.className = 'msg show err'; m.textContent = T('errNet');
+      return;
+    }
+    btn.textContent = T('acked').replace('{t}', r.read);
+  }, function(){
+    btn.disabled = false; btn.textContent = T('ack');
+    var m = $('msg'); m.className = 'msg show err'; m.textContent = T('errNet');
+  });
+});
+</script>
+</body>
+</html>
