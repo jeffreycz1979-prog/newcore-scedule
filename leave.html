@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" translate="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<meta name="google" content="notranslate">
+<title>請假申請 Leave Request</title>
+<style>
+  :root{
+    --bg:#f4f6f8; --card:#fff; --ink:#22303c; --muted:#6b7c8a;
+    --line:#dde4ea; --brand:#00695c; --brand-d:#004d40;
+    --warn:#fff8e1; --warn-b:#fbc02d; --err:#c62828; --ok:#2e7d32;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;padding:0 14px 60px;background:var(--bg);color:var(--ink);
+       font:15px/1.6 -apple-system,"Noto Sans TC","Segoe UI",Arial,sans-serif}
+  .wrap{max-width:640px;margin:0 auto}
+  header{padding:22px 0 14px}
+  h1{margin:0;font-size:20px;letter-spacing:.5px}
+  .who{margin-top:6px;color:var(--muted);font-size:14px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;
+        padding:16px;margin-bottom:14px}
+  .card h2{margin:0 0 12px;font-size:15px;color:var(--brand-d);
+           border-left:3px solid var(--brand);padding-left:8px}
+  label{display:block;font-size:13px;color:var(--muted);margin-bottom:5px}
+  input[type=date],input[type=text],select,textarea{
+    width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:7px;
+    font:inherit;font-size:16px;background:#fff;color:var(--ink)}
+  textarea{resize:vertical;min-height:88px}
+  .counter{text-align:right;font-size:12px;color:var(--muted);margin-top:4px}
+  .counter.over{color:var(--err);font-weight:700}
+
+  .lesson{border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:10px;
+          background:#fbfdfe}
+  .lesson.on{border-color:var(--brand);background:#e8f5f3}
+  .lesson.dim{opacity:.55}
+  .lrow{display:flex;align-items:flex-start;gap:10px}
+  .lrow input[type=checkbox]{width:20px;height:20px;margin:2px 0 0;flex:0 0 auto}
+  .lmeta{flex:1;min-width:0}
+  .lcls{font-weight:700}
+  .ltag{display:inline-block;font-size:12px;padding:1px 7px;border-radius:10px;
+        background:#e0e0e0;color:#444;margin-left:6px}
+  .ltag.lead{background:#00695c;color:#fff}
+  .ltag.asst{background:#5c6bc0;color:#fff}
+  .lsub{margin-top:9px;display:none}
+  .lesson.on .lsub{display:block}
+  .note{font-size:12px;color:var(--muted);margin-top:4px}
+  .applied{font-size:12px;color:var(--err);margin-top:4px}
+
+  button{width:100%;padding:14px;border:0;border-radius:8px;background:var(--brand);
+         color:#fff;font:inherit;font-size:16px;font-weight:700;cursor:pointer}
+  button:disabled{background:#b0bec5;cursor:default}
+  .msg{padding:12px 14px;border-radius:8px;margin-bottom:14px;font-size:14px;display:none}
+  .msg.show{display:block}
+  .msg.warn{background:var(--warn);border-left:3px solid var(--warn-b)}
+  .msg.err{background:#ffebee;border-left:3px solid var(--err);color:#8e1414}
+  .msg.ok{background:#e8f5e9;border-left:3px solid var(--ok);color:#1b5e20}
+  .center{text-align:center;padding:50px 20px;color:var(--muted)}
+  .spin{display:inline-block;width:22px;height:22px;border:3px solid #cfd8dc;
+        border-top-color:var(--brand);border-radius:50%;animation:s 1s linear infinite}
+  @keyframes s{to{transform:rotate(360deg)}}
+  .hide{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div id="boot" class="center"><div class="spin"></div><p id="bootMsg">載入中…</p></div>
+
+  <div id="app" class="hide">
+    <header>
+      <h1 id="tTitle">請假申請</h1>
+      <div class="who" id="tWho"></div>
+    </header>
+
+    <div id="msg" class="msg"></div>
+
+    <div class="card">
+      <h2 id="tStep1">1. 請假日期</h2>
+      <input type="date" id="date">
+      <div class="note" id="tDateHint">選好日期後會自動列出你當天的課。</div>
+    </div>
+
+    <div class="card hide" id="lessonCard">
+      <h2 id="tStep2">2. 要請哪幾堂</h2>
+      <div id="lessons"></div>
+    </div>
+
+    <div class="card hide" id="reasonCard">
+      <h2 id="tStep3">3. 請假事由</h2>
+      <textarea id="reason" maxlength="200"></textarea>
+      <div class="counter" id="cnt">0 / 200</div>
+      <div class="note" id="tHandoverNote">
+        交接事項不用現在填。核准後會另外寄一個連結給你補。
+      </div>
+    </div>
+
+    <div class="card hide" id="sendCard">
+      <button id="send" disabled></button>
+      <div class="note" id="tSendNote" style="margin-top:10px"></div>
+    </div>
+  </div>
+
+  <div id="done" class="hide">
+    <header><h1 id="tDone">已送出</h1></header>
+    <div class="msg ok show" id="doneMsg"></div>
+    <div class="card"><div id="doneList"></div></div>
+  </div>
+
+</div>
+
+<script>
+/* ============================================================
+ *  ⬇⬇⬇ 唯一要你改的一行：貼上月排課系統的 /exec 網址 ⬇⬇⬇
+ *  跟 confirm.html 裡的那個是同一個，直接複製過來
+ * ============================================================ */
+var GAS_URL = 'https://script.google.com/macros/s/請貼上部署ID/exec';
+/* ============================================================ */
+
+var TIMEOUT = 45000;          // GAS 冷啟動在手機網路上要十幾秒，25 秒太短
+var LANG = 'zh';
+var TOKEN = '';
+var TEACHERS = [];
+var LESSONS = [];
+
+/* ---------- 雙語 ---------- */
+var I18N = {
+  zh: {
+    title:'請假申請', step1:'1. 請假日期', step2:'2. 要請哪幾堂', step3:'3. 請假事由',
+    dateHint:'選好日期後會自動列出你當天的課。',
+    handoverNote:'交接事項不用現在填。核准後會另外寄一個連結給你補。',
+    send:'送出申請', sending:'送出中…',
+    sendNote:'送出後管理者會收到通知並核准。代課老師請你自己先談好。',
+    lead:'主教', asst:'助教', who:'（{r}）',
+    noLesson:'這天你沒有課。換一個日期試試。',
+    loading:'載入中…', loadingLessons:'查詢當天的課…',
+    subLabel:'代課老師（請填已經談好的人）',
+    choose:'-- 請選擇 --', other:'其他（他校老師，自己打）', notyet:'還沒找到（請管理者協尋）',
+    otherPh:'代課老師姓名',
+    applied:'這堂已經有申請中（{s}），不能重複送',
+    errNoPick:'至少要選一堂課', errNoReason:'請填請假事由',
+    errNoSub:'有課還沒指定代課老師',
+    errToken:'連結無效。請用管理者寄給你的專屬連結開啟。',
+    errNet:'連線逾時。可能是網路太慢或系統在啟動，請再按一次。',
+    errBusy:'系統忙碌中，請稍等幾秒再送出。',
+    doneTitle:'已送出', doneMsg:'申請編號 {id}，共 {n} 堂。管理者核准後你會收到通知信。',
+    skipped:'以下沒有送出：'
+  },
+  en: {
+    title:'Leave Request', step1:'1. Date', step2:'2. Which classes', step3:'3. Reason',
+    dateHint:'Pick a date and your classes will be listed.',
+    handoverNote:'No need to write handover notes now. You will get a link after approval.',
+    send:'Submit', sending:'Sending…',
+    sendNote:'The admin will be notified and will approve it. Please arrange the cover teacher yourself first.',
+    lead:'Lead', asst:'Assist', who:' ({r})',
+    noLesson:'You have no class on this date. Try another one.',
+    loading:'Loading…', loadingLessons:'Looking up your classes…',
+    subLabel:'Cover teacher (someone you have already arranged)',
+    choose:'-- Select --', other:'Other (from another school)', notyet:'Not found yet (admin to arrange)',
+    otherPh:'Cover teacher name',
+    applied:'Already requested ({s})',
+    errNoPick:'Select at least one class', errNoReason:'Please give a reason',
+    errNoSub:'A selected class has no cover teacher',
+    errToken:'Invalid link. Please use the personal link sent to you.',
+    errNet:'Timed out. The server may be waking up — please tap again.',
+    errBusy:'System is busy, please wait a few seconds and try again.',
+    doneTitle:'Submitted', doneMsg:'Request {id}, {n} class(es). You will be notified after approval.',
+    skipped:'Not submitted:'
+  }
+};
+function T(k){ return I18N[LANG][k]; }
+
+/* ---------- JSONP ---------- */
+var jsonpSeq = 0;
+function jsonp(params, cb, errCb){
+  var name = 'lcb' + (++jsonpSeq) + '_' + Date.now();
+  var done = false;
+  var s = document.createElement('script');
+
+  var timer = setTimeout(function(){
+    if (done) return;
+    done = true; cleanup();
+    errCb && errCb('timeout');
+  }, TIMEOUT);
+
+  function cleanup(){
+    clearTimeout(timer);
+    try { delete window[name]; } catch(e) { window[name] = undefined; }
+    if (s.parentNode) s.parentNode.removeChild(s);
+  }
+
+  window[name] = function(data){
+    if (done) return;
+    done = true; cleanup();
+    cb(data);
+  };
+
+  var q = [];
+  for (var k in params) {
+    if (params[k] === undefined || params[k] === null) continue;
+    q.push(encodeURIComponent(k) + '=' + encodeURIComponent(params[k]));
+  }
+  q.push('callback=' + name);
+
+  s.src = GAS_URL + '?' + q.join('&');
+  s.onerror = function(){
+    if (done) return;
+    done = true; cleanup();
+    errCb && errCb('neterror');
+  };
+  document.body.appendChild(s);
+}
+
+/* ---------- 小工具 ---------- */
+function $(id){ return document.getElementById(id); }
+function esc(t){
+  return String(t == null ? '' : t)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+function show(el){ el.classList.remove('hide'); }
+function hide(el){ el.classList.add('hide'); }
+function say(kind, text){
+  var m = $('msg');
+  m.className = 'msg show ' + kind;
+  m.innerHTML = text;
+  window.scrollTo(0, 0);
+}
+function clearSay(){ $('msg').className = 'msg'; }
+
+/* ---------- 啟動 ---------- */
+(function init(){
+  var m = location.search.match(/[?&]t=([^&]+)/);
+  TOKEN = m ? decodeURIComponent(m[1]) : '';
+  if (!TOKEN) { $('bootMsg').textContent = I18N.zh.errToken; return; }
+
+  jsonp({ action:'getLeaveInit', token:TOKEN }, function(d){
+    if (!d || !d.ok) { $('bootMsg').textContent = I18N.zh.errToken; return; }
+    LANG = d.teacher.lang || 'zh';
+    TEACHERS = d.teachers || [];
+    document.documentElement.lang = (LANG === 'en') ? 'en' : 'zh-Hant';
+
+    $('tTitle').textContent        = T('title');
+    $('tStep1').textContent        = T('step1');
+    $('tStep2').textContent        = T('step2');
+    $('tStep3').textContent        = T('step3');
+    $('tDateHint').textContent     = T('dateHint');
+    $('tHandoverNote').textContent = T('handoverNote');
+    $('tSendNote').textContent     = T('sendNote');
+    $('send').textContent          = T('send');
+    $('tWho').textContent          = d.teacher.name + T('who').replace('{r}', d.teacher.role);
+
+    hide($('boot')); show($('app'));
+  }, function(){
+    $('bootMsg').textContent = I18N.zh.errNet;
+  });
+})();
+
+/* ---------- 選日期 → 查課 ---------- */
+$('date').addEventListener('change', function(){
+  var d = this.value;
+  clearSay();
+  hide($('reasonCard')); hide($('sendCard'));
+  if (!d) { hide($('lessonCard')); return; }
+
+  show($('lessonCard'));
+  $('lessons').innerHTML = '<div class="center"><div class="spin"></div><p>'
+                         + esc(T('loadingLessons')) + '</p></div>';
+
+  jsonp({ action:'getLeaveLessons', token:TOKEN, date:d }, function(r){
+    if (!r || !r.ok) { $('lessons').innerHTML = '<p class="applied">' + esc(T('errToken')) + '</p>'; return; }
+    LESSONS = r.lessons || [];
+    renderLessons();
+  }, function(){
+    $('lessons').innerHTML = '<p class="applied">' + esc(T('errNet')) + '</p>';
+  });
+});
+
+function renderLessons(){
+  if (!LESSONS.length) {
+    $('lessons').innerHTML = '<p class="note">' + esc(T('noLesson')) + '</p>';
+    hide($('reasonCard')); hide($('sendCard'));
+    return;
+  }
+
+  var opts = '<option value="">' + esc(T('choose')) + '</option>';
+  for (var i = 0; i < TEACHERS.length; i++) {
+    var t = TEACHERS[i];
+    opts += '<option value="' + esc(t.name) + '">' + esc(t.name)
+          + (t.role ? '（' + esc(t.role) + '）' : '') + '</option>';
+  }
+  opts += '<option value="__other__">' + esc(T('other')) + '</option>';
+  opts += '<option value="__none__">' + esc(T('notyet')) + '</option>';
+
+  var h = '';
+  LESSONS.forEach(function(L, i){
+    var locked = !!L.applied;
+    var tag = (L.role === '主教')
+      ? '<span class="ltag lead">' + esc(T('lead')) + '</span>'
+      : '<span class="ltag asst">' + esc(T('asst')) + '</span>';
+
+    h += '<div class="lesson' + (locked ? ' dim' : '') + '" id="L' + i + '">'
+       +   '<div class="lrow">'
+       +     '<input type="checkbox" id="c' + i + '" data-i="' + i + '"'
+       +        (locked ? ' disabled' : '') + '>'
+       +     '<div class="lmeta">'
+       +       '<div><span class="lcls">' + esc(L.cls) + '</span>' + tag + '</div>'
+       +       '<div class="note">' + esc(L.pc) + ' ｜ ' + esc(L.hrs) + 'h'
+       +         (L.type && L.type !== '固定' ? ' ｜ ' + esc(L.type) : '') + '</div>'
+       +       (locked
+            ? '<div class="applied">' + esc(T('applied').replace('{s}', L.applied)) + '</div>'
+            : '')
+       +       '<div class="lsub">'
+       +         '<label>' + esc(T('subLabel')) + '</label>'
+       +         '<select id="s' + i + '" data-i="' + i + '">' + opts + '</select>'
+       +         '<input type="text" id="o' + i + '" class="hide" placeholder="'
+       +            esc(T('otherPh')) + '" maxlength="20" style="margin-top:8px">'
+       +       '</div>'
+       +     '</div>'
+       +   '</div>'
+       + '</div>';
+  });
+  $('lessons').innerHTML = h;
+
+  LESSONS.forEach(function(L, i){
+    var cb = $('c' + i);
+    if (cb) cb.addEventListener('change', function(){
+      $('L' + i).classList.toggle('on', this.checked);
+      refresh();
+    });
+    var sel = $('s' + i);
+    if (sel) sel.addEventListener('change', function(){
+      $('o' + i).classList.toggle('hide', this.value !== '__other__');
+      refresh();
+    });
+    var oth = $('o' + i);
+    if (oth) oth.addEventListener('input', refresh);
+  });
+
+  show($('reasonCard')); show($('sendCard'));
+  refresh();
+}
+
+/* ---------- 字數 ---------- */
+$('reason').addEventListener('input', function(){
+  $('cnt').textContent = this.value.length + ' / 200';
+  refresh();
+});
+
+/* ---------- 收集 + 驗證 ---------- */
+function collect(){
+  var picks = [], missing = false;
+  LESSONS.forEach(function(L, i){
+    var cb = $('c' + i);
+    if (!cb || !cb.checked) return;
+    var v = $('s' + i).value;
+    var name = '';
+    if (v === '__other__')      name = $('o' + i).value.trim();
+    else if (v === '__none__')  name = '';                   // 待協尋
+    else                        name = v;
+    if (!v) { missing = true; return; }                      // 連選都沒選
+    if (v === '__other__' && !name) { missing = true; return; }
+    picks.push({ r: L.row, s: name });
+  });
+  return { picks: picks, missing: missing };
+}
+
+function refresh(){
+  var c = collect();
+  var ok = c.picks.length > 0 && !c.missing && $('reason').value.trim().length > 0;
+  $('send').disabled = !ok;
+}
+
+/* ---------- 送出 ---------- */
+$('send').addEventListener('click', function(){
+  var c = collect();
+  if (!c.picks.length) { say('err', esc(T('errNoPick'))); return; }
+  if (c.missing)       { say('err', esc(T('errNoSub')));  return; }
+  var reason = $('reason').value.trim();
+  if (!reason)         { say('err', esc(T('errNoReason'))); return; }
+
+  var btn = this;
+  btn.disabled = true;
+  btn.textContent = T('sending');
+  clearSay();
+
+  jsonp({
+    action: 'submitLeave',
+    token : TOKEN,
+    date  : $('date').value,
+    reason: reason,
+    picks : JSON.stringify(c.picks)
+  }, function(r){
+    if (!r || !r.ok) {
+      btn.disabled = false; btn.textContent = T('send');
+      var e = r && r.error;
+      if (e === 'busy') say('err', esc(T('errBusy')));
+      else if (e === 'all_rejected')
+        say('err', esc(T('skipped')) + '<br>' + esc((r.detail || []).join('、')));
+      else say('err', esc(T('errNet')) + (e ? '（' + esc(e) + '）' : ''));
+      return;
+    }
+    hide($('app'));
+    $('tDone').textContent = T('doneTitle');
+    $('doneMsg').textContent = T('doneMsg')
+      .replace('{id}', r.applyId).replace('{n}', r.count);
+    var extra = '';
+    if (r.skipped && r.skipped.length)
+      extra = '<p class="applied">' + esc(T('skipped')) + ' '
+            + esc(r.skipped.join('、')) + '</p>';
+    $('doneList').innerHTML = extra
+      || '<p class="note">' + esc(T('sendNote')) + '</p>';
+    show($('done'));
+    window.scrollTo(0, 0);
+  }, function(){
+    btn.disabled = false; btn.textContent = T('send');
+    say('err', esc(T('errNet')));
+  });
+});
+</script>
+</body>
+</html>
