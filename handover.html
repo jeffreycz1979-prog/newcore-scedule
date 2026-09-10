@@ -226,8 +226,8 @@ function render(){
     var roleTag = isLead
       ? '<span class="ctag lead">' + esc(T('lead')) + '</span>'
       : '<span class="ctag asst">' + esc(T('asst')) + '</span>';
-    var typeTag = c.subType
-      ? '<span class="ctag type">' + esc(c.subType) + '</span>' : '';
+      var typeTag = c.subType
+      ? '<span class="ctag type">' + esc(typeLabel(c.subType)) + '</span>' : '';
 
     h += '<div class="card">'
        +   '<div class="chead">'
@@ -281,6 +281,10 @@ $('ack').addEventListener('click', function(){
     var m = $('msg'); m.className = 'msg show err'; m.textContent = T('errNet');
   });
 });
+  function typeLabel(t){
+  if (LANG !== 'en') return t;
+  return (String(t).indexOf('休代') >= 0) ? 'Off-hours cover' : 'Cover';
+}
 </script>
 </body>
 </html>
