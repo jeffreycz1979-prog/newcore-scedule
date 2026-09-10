@@ -154,7 +154,7 @@
  *  ⬇⬇⬇ 唯一要你改的一行：貼上月排課系統的 /exec 網址 ⬇⬇⬇
  *  跟 confirm.html / handover.html 裡的那個是同一個
  * ============================================================ */
-var GAS_URL = 'https://script.google.com/macros/s/AKfycbxaxdc_F9-y_IgW2ah5kyqvGJ8lSKLBJIOesILXYaYjDABTSh1YN7SKSZ2n6Hj7WpLleA/exec';
+var GAS_URL = 'https://script.google.com/macros/s/請貼上部署ID/exec';
 /* ============================================================ */
 
 var TIMEOUT = 45000;          // GAS 冷啟動在手機網路上要十幾秒，25 秒太短
@@ -165,6 +165,7 @@ var LESSONS = [];
 var HMAX = 300;               // 交接事項單堂上限，由後端回傳覆寫
 var MINE = null;              // 我的申請快取
 var VIEW = 'new';
+var PREFILL = null;           // 「以此重新申請」暫存，套用一次就清掉
 
 /* ---------- 雙語 ---------- */
 var I18N = {
@@ -206,7 +207,10 @@ var I18N = {
     cancel:'撤回這張申請', cancelling:'撤回中…',
     cancelAsk:'確定要撤回 {d} 這張申請嗎？撤回後要再請假請重新申請。',
     cancelled:'已撤回。',
-    errCancelled:'這張單已經是「{s}」，不能自己撤回。已核准的要請管理者撤銷。'
+    errCancelled:'這張單已經是「{s}」，不能自己撤回。已核准的要請管理者撤銷。',
+    reapply:'以此重新申請',
+    reapplyNote:'已帶入原本的日期、堂次與事由。請換一位代課老師再送出。',
+    reapplyMiss:'以下這幾堂目前已經有其他申請中，沒有帶入：{c}'
   },
   en: {
     title:'Leave Request', step1:'1. Date', step2:'2. Which classes', step3:'3. Reason',
@@ -246,7 +250,10 @@ var I18N = {
     cancel:'Withdraw this request', cancelling:'Withdrawing…',
     cancelAsk:'Withdraw the request for {d}? You will have to submit a new one.',
     cancelled:'Withdrawn.',
-    errCancelled:'This request is already "{s}" and cannot be withdrawn here. Ask the admin to revert an approved one.'
+    errCancelled:'This request is already "{s}" and cannot be withdrawn here. Ask the admin to revert an approved one.',
+    reapply:'Reapply with these details',
+    reapplyNote:'Date, classes and reason have been copied over. Please choose a different cover teacher before submitting.',
+    reapplyMiss:'Not copied — these already have another pending request: {c}'
   }
 };
 function T(k){ return I18N[LANG][k]; }
@@ -460,6 +467,7 @@ function renderLessons(){
   });
 
   show($('reasonCard')); show($('sendCard'));
+  if (PREFILL) { applyPrefill(); PREFILL = null; }
   refresh();
 }
 
@@ -635,10 +643,14 @@ function renderMine(){
       h += '</div>';
     });
 
-    if (first.canCancel) {
+    if (first.status === '已駁回') {
+      // 不修改歷史列，新開一列——駁回列凍結保留，稽核軌跡才完整
+      h += '<button class="btn-ghost" id="rq' + gi + '" style="margin-top:12px">'
+         +   esc(T('reapply')) + '</button>';
+    } else if (first.canCancel) {
       h += '<button class="btn-danger" id="cx' + gi + '" style="margin-top:12px">'
          +   esc(T('cancel')) + '</button>';
-    } else if (first.status !== '已核准' && first.status !== '已駁回' && first.status !== '已撤銷') {
+    } else if (first.status !== '已核准' && first.status !== '已撤銷') {
       h += '<div class="note" style="margin-top:10px">'
          +   esc(T('hLockedNote').replace('{s}', first.status)) + '</div>';
     }
@@ -667,7 +679,63 @@ function wireMine(groups){
   groups.forEach(function(g, gi){
     var b = $('cx' + gi);
     if (b) b.addEventListener('click', function(){ cancelApply(g, this); });
+    var r = $('rq' + gi);
+    if (r) r.addEventListener('click', function(){ startReapply(g); });
   });
+}
+
+/* ---------- 以此重新申請 ---------- */
+function startReapply(g){
+  PREFILL = {
+    date  : g.items[0].date,
+    reason: g.items[0].reason,
+    picks : g.items.map(function(it){
+      return { cls: it.cls, pc: it.pc, role: it.role, sub: it.sub };
+    })
+  };
+  switchTo('new');
+  $('date').value = PREFILL.date;
+  $('date').dispatchEvent(new Event('change'));   // 走一樣的查課流程，不另開路徑
+}
+
+/** renderLessons 之後才呼叫——要等課表畫出來才有東西可以勾 */
+function applyPrefill(){
+  var names = [];
+  for (var n = 0; n < TEACHERS.length; n++) names.push(TEACHERS[n].name);
+
+  var hit = 0, miss = [];
+
+  LESSONS.forEach(function(L, i){
+    var want = null;
+    for (var k = 0; k < PREFILL.picks.length; k++) {
+      var p = PREFILL.picks[k];
+      if (p.cls === L.cls && p.pc === L.pc && p.role === L.role) { want = p; break; }
+    }
+    if (!want) return;
+
+    var cb = $('c' + i);
+    if (!cb || cb.disabled) { miss.push(L.cls); return; }   // 已經有別張申請中
+    cb.checked = true;
+    $('L' + i).classList.add('on');
+
+    var sel = $('s' + i);
+    if (want.sub && names.indexOf(want.sub) >= 0) {
+      sel.value = want.sub;
+    } else if (want.sub) {
+      sel.value = '__other__';
+      $('o' + i).classList.remove('hide');
+      $('o' + i).value = want.sub;
+    } else {
+      sel.value = '__none__';
+    }
+    hit++;
+  });
+
+  $('reason').value = PREFILL.reason || '';
+  $('cnt').textContent = $('reason').value.length + ' / 200';
+
+  if (miss.length)   say('warn', esc(T('reapplyMiss').replace('{c}', miss.join('、'))));
+  else if (hit)      say('warn', esc(T('reapplyNote')));
 }
 
 function saveHandover(it, notify, btn){
