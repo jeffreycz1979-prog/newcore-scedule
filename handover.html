@@ -76,7 +76,35 @@
   </div>
 
 </div>
+<script>
+/* 語法錯誤會讓整個 <script> 區塊停擺，所以這段要自己獨立一塊，
+   否則它會跟出錯的程式碼一起陣亡。confirm.html 那次就是這種。
+   三個頁面（confirm / leave / handover）可以貼完全一樣的內容：
+   fatal → boot → loading → body，依序找得到哪個用哪個。*/
+window.onerror = function (msg, src, line, col) {
+  try {
+    var box = document.getElementById('fatal')
+           || document.getElementById('boot')
+           || document.getElementById('loading')
+           || document.body;
 
+    // 還在轉圈圈的那一塊藏起來（除非它就是要拿來顯示的那塊）
+    var load = document.getElementById('loading') || document.getElementById('boot');
+    if (load && load !== box) load.hidden = true;
+
+    box.hidden = false;
+    box.innerHTML =
+      '<div style="padding:18px;text-align:left;font:13px/1.7 sans-serif;color:#b00020">'
+      + '<b>頁面載入失敗 / Page failed to load</b><br>'
+      + '請把這整段截圖傳給管理者 / Please screenshot this:<br><br>'
+      + '<code style="display:block;background:#fff3f3;padding:10px;border-radius:6px;'
+      +   'word-break:break-all;white-space:pre-wrap;color:#900">'
+      + String(msg) + '\n@ line ' + line + (col ? ':' + col : '')
+      + '</code></div>';
+  } catch (e) { /* 連這個都失敗就真的沒辦法了 */ }
+  return false;        // false = 仍然照常丟到 Console，方便你自己看
+};
+</script>
 <script>
 /* ============================================================
  *  ⬇⬇⬇ 唯一要你改的一行：貼上月排課系統的 /exec 網址 ⬇⬇⬇
