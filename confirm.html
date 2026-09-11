@@ -93,23 +93,36 @@ button.go.warn{background:var(--amber)}
   <div id="fatal" class="center" hidden></div>
   <div id="app" hidden></div>
 </div>
-
 <script>
-/* ══════════════════════════════════════════════════════
-   🔴 任何 JS 錯誤都直接寫在畫面上。
-   沒有這段的話，語法錯誤會讓頁面永遠停在「載入中」而且完全不說話——
-   底下所有的逾時與錯誤處理都還沒被掛上去就已經死了。
-   老師只會回報「打不開」，你完全沒有線索。（2026-09-11 實際踩過）
-   ══════════════════════════════════════════════════════ */
-window.onerror = function (m, src, line) {
-  var b = document.getElementById('loading') || document.body;
-  b.innerHTML = '<div style="padding:30px 20px;text-align:left;color:#c5221f;font-size:14px">'
-              + '頁面載入失敗，請把這段截圖給管理者：<br>'
-              + 'Page failed to load — please screenshot this for the admin.<br><br>'
-              + '<code style="font-size:12px;word-break:break-all">'
-              + String(m) + '<br>line ' + line + '</code></div>';
-  return false;
+/* 語法錯誤會讓整個 <script> 區塊停擺，所以這段要自己獨立一塊，
+   否則它會跟出錯的程式碼一起陣亡。confirm.html 那次就是這種。
+   三個頁面（confirm / leave / handover）可以貼完全一樣的內容：
+   fatal → boot → loading → body，依序找得到哪個用哪個。*/
+window.onerror = function (msg, src, line, col) {
+  try {
+    var box = document.getElementById('fatal')
+           || document.getElementById('boot')
+           || document.getElementById('loading')
+           || document.body;
+
+    // 還在轉圈圈的那一塊藏起來（除非它就是要拿來顯示的那塊）
+    var load = document.getElementById('loading') || document.getElementById('boot');
+    if (load && load !== box) load.hidden = true;
+
+    box.hidden = false;
+    box.innerHTML =
+      '<div style="padding:18px;text-align:left;font:13px/1.7 sans-serif;color:#b00020">'
+      + '<b>頁面載入失敗 / Page failed to load</b><br>'
+      + '請把這整段截圖傳給管理者 / Please screenshot this:<br><br>'
+      + '<code style="display:block;background:#fff3f3;padding:10px;border-radius:6px;'
+      +   'word-break:break-all;white-space:pre-wrap;color:#900">'
+      + String(msg) + '\n@ line ' + line + (col ? ':' + col : '')
+      + '</code></div>';
+  } catch (e) { /* 連這個都失敗就真的沒辦法了 */ }
+  return false;        // false = 仍然照常丟到 Console，方便你自己看
 };
+</script>
+<script>
 
 /* ══════════════════════════════════════════════════════
    ⬇⬇⬇  唯一要改的一行：整組引號內容換成排課系統的 GAS 網址  ⬇⬇⬇
