@@ -36,6 +36,18 @@
                background:#e3eaef;color:var(--brand-d);font-weight:600}
   .tabs button.on{background:var(--brand);color:#fff}
 
+  /* ---- 請假期間 ---- */
+  .range{display:flex;align-items:center;gap:9px}
+  .range input{flex:1;min-width:0}
+  .range span{color:var(--muted);font-size:13px;flex:0 0 auto}
+
+  /* ---- 日期分隔 ---- */
+  .dayhdr{display:flex;align-items:center;gap:9px;margin:14px 0 8px}
+  .dayhdr:first-child{margin-top:0}
+  .dayhdr b{font-size:15px;color:var(--brand-d);flex:0 0 auto}
+  .dayhdr i{flex:1;height:1px;background:var(--line)}
+  .dayhdr em{font-style:normal;font-size:12px;color:var(--muted);flex:0 0 auto}
+
   .lesson{border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:10px;
           background:#fbfdfe}
   .lesson.on{border-color:var(--brand);background:#e8f5f3}
@@ -109,9 +121,13 @@
     <!-- ============ 分頁一：提出申請 ============ -->
     <div id="viewNew">
       <div class="card">
-        <h2 id="tStep1">1. 請假日期</h2>
-        <input type="date" id="date">
-        <div class="note" id="tDateHint">選好日期後會自動列出你當天的課。</div>
+        <h2 id="tStep1">1. 請假期間</h2>
+        <div class="range">
+          <input type="date" id="date">
+          <span id="tTo">到</span>
+          <input type="date" id="date2">
+        </div>
+        <div class="note" id="tDateHint">只請一天的話，兩邊填同一天。</div>
       </div>
 
       <div class="card hide" id="lessonCard">
@@ -151,8 +167,8 @@
 
 <script>
 /* ============================================================
- *  ⬇⬇⬇ 唯一要你改的一行：貼上月排課系統的 /exec 網址 ⬇⬇⬇
- *  跟 confirm.html / handover.html 裡的那個是同一個
+ *  月排課系統的 /exec 網址（已填好，跟 confirm.html / handover.html 同一個）
+ *  ⚠️ 覆蓋這個檔案時記得確認這一行沒有被改掉
  * ============================================================ */
 var GAS_URL = 'https://script.google.com/macros/s/AKfycbxaxdc_F9-y_IgW2ah5kyqvGJ8lSKLBJIOesILXYaYjDABTSh1YN7SKSZ2n6Hj7WpLleA/exec';
 /* ============================================================ */
@@ -170,13 +186,15 @@ var PREFILL = null;           // 「以此重新申請」暫存，套用一次�
 /* ---------- 雙語 ---------- */
 var I18N = {
   zh: {
-    title:'請假申請', step1:'1. 請假日期', step2:'2. 要請哪幾堂', step3:'3. 請假事由',
-    dateHint:'選好日期後會自動列出你當天的課。',
+    title:'請假申請', step1:'1. 請假期間', step2:'2. 要請哪幾堂', step3:'3. 請假事由',
+    dateHint:'只請一天的話，兩邊填同一天。選好之後會列出這段期間你所有的課。',
+    to:'到', dayCount:'共 {n} 天、{m} 堂課',
+    errRange:'結束日不能早於開始日。', errSpan:'一次最多只能申請 31 天。',
     handoverNote:'交接事項不用現在填。核准後到「我的申請」逐堂補就好。',
     send:'送出申請', sending:'送出中…',
     sendNote:'送出後管理者會收到通知並核准。代課老師請你自己先談好。',
     lead:'主教', asst:'助教', who:'（{r}）',
-    noLesson:'這天你沒有課。換一個日期試試。',
+    noLesson:'這段期間你沒有課。換一個日期試試。',
     loading:'載入中…', loadingLessons:'查詢當天的課…',
     subLabel:'代課老師（請填已經談好的人）',
     choose:'-- 請選擇 --', other:'其他（他校老師，自己打）', notyet:'還沒找到（請管理者協尋）',
@@ -187,7 +205,7 @@ var I18N = {
     errToken:'連結無效。請用管理者寄給你的專屬連結開啟。',
     errNet:'連線逾時。可能是網路太慢或系統在啟動，請再按一次。',
     errBusy:'系統忙碌中，請稍等幾秒再送出。',
-    doneTitle:'已送出', doneMsg:'申請編號 {id}，共 {n} 堂。管理者核准後你會收到通知信。',
+    doneTitle:'已送出', doneMsg:'申請編號 {id}，共 {d} 天 {n} 堂。管理者核准後你會收到通知信。',
     skipped:'以下沒有送出：',
 
     tabNew:'提出申請', tabMine:'我的申請',
@@ -213,13 +231,15 @@ var I18N = {
     reapplyMiss:'以下這幾堂目前已經有其他申請中，沒有帶入：{c}'
   },
   en: {
-    title:'Leave Request', step1:'1. Date', step2:'2. Which classes', step3:'3. Reason',
-    dateHint:'Pick a date and your classes will be listed.',
+    title:'Leave Request', step1:'1. Leave period', step2:'2. Which classes', step3:'3. Reason',
+    dateHint:'For a single day, put the same date in both boxes.',
+    to:'to', dayCount:'{n} day(s), {m} class(es)',
+    errRange:'The end date cannot be before the start date.', errSpan:'Maximum 31 days per request.',
     handoverNote:'No need to write handover notes now. Add them under "My requests" after approval.',
     send:'Submit', sending:'Sending…',
     sendNote:'The admin will be notified and will approve it. Please arrange the cover teacher yourself first.',
     lead:'Lead', asst:'Assist', who:' ({r})',
-    noLesson:'You have no class on this date. Try another one.',
+    noLesson:'You have no class in this period. Try another range.',
     loading:'Loading…', loadingLessons:'Looking up your classes…',
     subLabel:'Cover teacher (someone you have already arranged)',
     choose:'-- Select --', other:'Other (from another school)', notyet:'Not found yet (admin to arrange)',
@@ -230,7 +250,7 @@ var I18N = {
     errToken:'Invalid link. Please use the personal link sent to you.',
     errNet:'Timed out. The server may be waking up — please tap again.',
     errBusy:'System is busy, please wait a few seconds and try again.',
-    doneTitle:'Submitted', doneMsg:'Request {id}, {n} class(es). You will be notified after approval.',
+    doneTitle:'Submitted', doneMsg:'Request {id} — {d} day(s), {n} class(es). You will be notified after approval.',
     skipped:'Not submitted:',
 
     tabNew:'New request', tabMine:'My requests',
@@ -351,6 +371,7 @@ function stClass(s){
     $('tStep2').textContent        = T('step2');
     $('tStep3').textContent        = T('step3');
     $('tDateHint').textContent     = T('dateHint');
+    $('tTo').textContent           = T('to');
     $('tHandoverNote').textContent = T('handoverNote');
     $('tSendNote').textContent     = T('sendNote');
     $('send').textContent          = T('send');
@@ -370,7 +391,8 @@ $('tabNew').addEventListener('click', function(){ switchTo('new'); });
 $('tabMine').addEventListener('click', function(){ switchTo('mine'); });
 $('backBtn').addEventListener('click', function(){
   hide($('done')); show($('app')); switchTo('new');
-  $('date').value = ''; hide($('lessonCard')); hide($('reasonCard')); hide($('sendCard'));
+  $('date').value = ''; $('date2').value = '';
+  hide($('lessonCard')); hide($('reasonCard')); hide($('sendCard'));
   $('reason').value = ''; $('cnt').textContent = '0 / 200';
 });
 
@@ -385,25 +407,37 @@ function switchTo(v){
   if (v === 'mine') loadMine();
 }
 
-/* ---------- 選日期 → 查課 ---------- */
+/* ---------- 選區間 → 查課 ---------- */
 $('date').addEventListener('change', function(){
-  var d = this.value;
+  // 先填開始日時，結束日自動跟上，單日請假不用填兩次
+  if (this.value && !$('date2').value) $('date2').value = this.value;
+  loadRange();
+});
+$('date2').addEventListener('change', loadRange);
+
+function loadRange(){
+  var from = $('date').value;
+  var to   = $('date2').value || from;
   clearSay();
   hide($('reasonCard')); hide($('sendCard'));
-  if (!d) { hide($('lessonCard')); return; }
+  if (!from) { hide($('lessonCard')); return; }
+
+  if (to < from) { hide($('lessonCard')); say('err', esc(T('errRange'))); return; }
+  var span = Math.round((new Date(to) - new Date(from)) / 86400000) + 1;
+  if (span > 31) { hide($('lessonCard')); say('err', esc(T('errSpan'))); return; }
 
   show($('lessonCard'));
   $('lessons').innerHTML = '<div class="center"><div class="spin"></div><p>'
                          + esc(T('loadingLessons')) + '</p></div>';
 
-  jsonp({ action:'getLeaveLessons', token:TOKEN, date:d }, function(r){
+  jsonp({ action:'getLeaveLessons', token:TOKEN, date:from, date2:to }, function(r){
     if (!r || !r.ok) { $('lessons').innerHTML = '<p class="applied">' + esc(T('errToken')) + '</p>'; return; }
     LESSONS = r.lessons || [];
     renderLessons();
   }, function(){
     $('lessons').innerHTML = '<p class="applied">' + esc(T('errNet')) + '</p>';
   });
-});
+}
 
 function renderLessons(){
   if (!LESSONS.length) {
@@ -421,8 +455,22 @@ function renderLessons(){
   opts += '<option value="__other__">' + esc(T('other')) + '</option>';
   opts += '<option value="__none__">' + esc(T('notyet')) + '</option>';
 
+  // 統計天數，給老師一個「這段期間總共這些」的概念
+  var days = [];
+  LESSONS.forEach(function(L){ if (days.indexOf(L.date) < 0) days.push(L.date); });
+
   var h = '';
+  var lastDate = '';
   LESSONS.forEach(function(L, i){
+    // 跨到新的一天就插一條日期分隔（單日請假時只會有一條）
+    if (L.date && L.date !== lastDate) {
+      lastDate = L.date;
+      var n = 0;
+      LESSONS.forEach(function(x){ if (x.date === L.date) n++; });
+      h += '<div class="dayhdr"><b>' + esc(dateLabel(L.date)) + '</b>'
+         + '<i></i><em>' + n + '</em></div>';
+    }
+
     var locked = !!L.applied;
     var tag = (L.role === '主教')
       ? '<span class="ltag lead">' + esc(T('lead')) + '</span>'
@@ -449,7 +497,10 @@ function renderLessons(){
        +   '</div>'
        + '</div>';
   });
-  $('lessons').innerHTML = h;
+  $('lessons').innerHTML =
+    '<div class="note" style="margin:0 0 10px">'
+    + esc(T('dayCount').replace('{n}', days.length).replace('{m}', LESSONS.length))
+    + '</div>' + h;
 
   LESSONS.forEach(function(L, i){
     var cb = $('c' + i);
@@ -518,6 +569,7 @@ $('send').addEventListener('click', function(){
     action: 'submitLeave',
     token : TOKEN,
     date  : $('date').value,
+    date2 : $('date2').value || $('date').value,
     reason: reason,
     picks : JSON.stringify(c.picks)
   }, function(r){
@@ -534,7 +586,9 @@ $('send').addEventListener('click', function(){
     hide($('app'));
     $('tDone').textContent = T('doneTitle');
     $('doneMsg').textContent = T('doneMsg')
-      .replace('{id}', r.applyId).replace('{n}', r.count);
+      .replace('{id}', r.applyId)
+      .replace('{d}', r.days || 1)
+      .replace('{n}', r.count);
     var extra = '';
     if (r.skipped && r.skipped.length)
       extra = '<p class="applied">' + esc(T('skipped')) + ' '
@@ -587,10 +641,16 @@ function renderMine(){
   var h = '';
   groups.forEach(function(g, gi){
     var first = g.items[0];
+    // 一張單可能跨好幾天，標題顯示整個區間
+    var ds = g.items.map(function(it){ return it.date; }).sort();
+    var span = (ds[0] === ds[ds.length - 1])
+      ? dateLabel(ds[0])
+      : dateLabel(ds[0]) + ' ～ ' + dateLabel(ds[ds.length - 1]);
+
     h += '<div class="card">'
        +   '<div class="app-head">'
        +     '<div>'
-       +       '<div class="app-date">' + esc(dateLabel(first.date)) + '</div>'
+       +       '<div class="app-date">' + esc(span) + '</div>'
        +       '<div class="app-id">' + esc(g.apply) + '　'
        +         esc(T('reasonBy')) + '：' + esc(first.reason) + '</div>'
        +     '</div>'
@@ -686,16 +746,19 @@ function wireMine(groups){
 
 /* ---------- 以此重新申請 ---------- */
 function startReapply(g){
+  var ds = g.items.map(function(it){ return it.date; }).sort();
   PREFILL = {
-    date  : g.items[0].date,
+    from  : ds[0],
+    to    : ds[ds.length - 1],
     reason: g.items[0].reason,
     picks : g.items.map(function(it){
-      return { cls: it.cls, pc: it.pc, role: it.role, sub: it.sub };
+      return { date: it.date, cls: it.cls, pc: it.pc, role: it.role, sub: it.sub };
     })
   };
   switchTo('new');
-  $('date').value = PREFILL.date;
-  $('date').dispatchEvent(new Event('change'));   // 走一樣的查課流程，不另開路徑
+  $('date').value  = PREFILL.from;
+  $('date2').value = PREFILL.to;
+  loadRange();                                   // 走一樣的查課流程，不另開路徑
 }
 
 /** renderLessons 之後才呼叫——要等課表畫出來才有東西可以勾 */
@@ -709,12 +772,14 @@ function applyPrefill(){
     var want = null;
     for (var k = 0; k < PREFILL.picks.length; k++) {
       var p = PREFILL.picks[k];
-      if (p.cls === L.cls && p.pc === L.pc && p.role === L.role) { want = p; break; }
+      if (p.date === L.date && p.cls === L.cls && p.pc === L.pc && p.role === L.role) {
+        want = p; break;
+      }
     }
     if (!want) return;
 
     var cb = $('c' + i);
-    if (!cb || cb.disabled) { miss.push(L.cls); return; }   // 已經有別張申請中
+    if (!cb || cb.disabled) { miss.push(L.date + ' ' + L.cls); return; }  // 已有別張申請中
     cb.checked = true;
     $('L' + i).classList.add('on');
 
@@ -778,7 +843,11 @@ function saveHandover(it, notify, btn){
 
 function cancelApply(g, btn){
   var first = g.items[0];
-  if (!window.confirm(T('cancelAsk').replace('{d}', dateLabel(first.date)))) return;
+  var cds = g.items.map(function(it){ return it.date; }).sort();
+  var clabel = (cds[0] === cds[cds.length - 1])
+    ? dateLabel(cds[0])
+    : dateLabel(cds[0]) + ' ～ ' + dateLabel(cds[cds.length - 1]);
+  if (!window.confirm(T('cancelAsk').replace('{d}', clabel))) return;
 
   var old = btn.textContent;
   btn.disabled = true;
