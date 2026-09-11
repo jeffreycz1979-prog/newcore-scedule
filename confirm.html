@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="google" content="notranslate"> 
+<meta name="google" content="notranslate">
 <title>時數確認單 | NewCore</title>
 <style>
 :root{
@@ -95,6 +95,22 @@ button.go.warn{background:var(--amber)}
 </div>
 
 <script>
+/* ══════════════════════════════════════════════════════
+   🔴 任何 JS 錯誤都直接寫在畫面上。
+   沒有這段的話，語法錯誤會讓頁面永遠停在「載入中」而且完全不說話——
+   底下所有的逾時與錯誤處理都還沒被掛上去就已經死了。
+   老師只會回報「打不開」，你完全沒有線索。（2026-09-11 實際踩過）
+   ══════════════════════════════════════════════════════ */
+window.onerror = function (m, src, line) {
+  var b = document.getElementById('loading') || document.body;
+  b.innerHTML = '<div style="padding:30px 20px;text-align:left;color:#c5221f;font-size:14px">'
+              + '頁面載入失敗，請把這段截圖給管理者：<br>'
+              + 'Page failed to load — please screenshot this for the admin.<br><br>'
+              + '<code style="font-size:12px;word-break:break-all">'
+              + String(m) + '<br>line ' + line + '</code></div>';
+  return false;
+};
+
 /* ══════════════════════════════════════════════════════
    ⬇⬇⬇  唯一要改的一行：整組引號內容換成排課系統的 GAS 網址  ⬇⬇⬇
    （部署 → 管理部署作業 → 複製 .../exec 那條，只會有一個 https://）
@@ -212,7 +228,7 @@ let sending = false;
       return fatal(m);
     }
     DATA = r.data;
-    T = [DATA.lang === 'en' ? 'en' : 'zh'];
+    T = I18N[DATA.lang === 'en' ? 'en' : 'zh'];
     document.documentElement.lang = (DATA.lang === 'en') ? 'en' : 'zh-Hant';
     render();
   } catch (e) { fatal(esc(e.message)); }
